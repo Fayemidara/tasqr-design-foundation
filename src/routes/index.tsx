@@ -1,26 +1,32 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 
 export const Route = createFileRoute("/")({
+  head: () => ({
+    meta: [
+      { title: "Tasqr" },
+      { name: "description", content: "Tasqr — design system foundation." },
+    ],
+  }),
   component: Index,
 });
 
-// IMPORTANT: Replace this placeholder. For sites with multiple pages (About, Services, Contact, etc.),
-// create separate route files (about.tsx, services.tsx, contact.tsx) — don't put all pages in this file.
-function PlaceholderIndex() {
+function Index() {
   return (
-    <div
-      className="flex min-h-screen items-center justify-center"
-      style={{ backgroundColor: "#fcfbf8" }}
-    >
-      <img
-        data-lovable-blank-page-placeholder="REMOVE_THIS"
-        src="https://cdn.gpteng.co/blank-app-v1.svg"
-        alt="Your app will live here!"
-      />
+    <div className="min-h-screen flex items-center justify-center bg-background px-6">
+      <div className="max-w-md text-center space-y-4">
+        <div className="text-label">Tasqr</div>
+        <h1 className="font-mono text-[32px]">Design System Ready</h1>
+        <p className="text-sm text-muted-foreground">
+          The foundation is in place. Every component, token, and layout primitive
+          lives on the showcase page.
+        </p>
+        <Link
+          to="/showcase"
+          className="inline-flex items-center justify-center h-10 px-4 bg-primary text-primary-foreground font-mono text-sm rounded-[4px] hover:bg-[oklch(0.5_0.16_255)] transition-colors"
+        >
+          Open /showcase
+        </Link>
+      </div>
     </div>
   );
-}
-
-function Index() {
-  return <PlaceholderIndex />;
 }
