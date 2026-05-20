@@ -146,8 +146,8 @@ export function AppShell({ children }: { children: ReactNode }) {
         )}
       </header>
       <div className="flex flex-1 min-h-0">
-        <aside className="w-[240px] bg-sidebar border-r border-border py-4">
-          <nav className="flex flex-col gap-1 px-3">
+        <aside className="w-[240px] bg-sidebar border-r border-border py-4 flex flex-col">
+          <nav className="flex flex-col gap-1 px-3 flex-1">
             {(isSellerMode ? sellerNav : buyerNav).map((item) => {
               const active = location.pathname.startsWith(item.to);
               return (
@@ -164,6 +164,17 @@ export function AppShell({ children }: { children: ReactNode }) {
               );
             })}
           </nav>
+          {isSellerMode && (
+            <div className="px-3 pt-4">
+              <Link
+                to="/seller/agents/new"
+                className="block w-full text-center font-mono text-sm px-3 py-2 rounded-[4px] text-white hover:opacity-90 transition-opacity"
+                style={{ backgroundColor: "#1976D2" }}
+              >
+                List New Agent
+              </Link>
+            </div>
+          )}
         </aside>
         <main className="flex-1 bg-background overflow-auto">{children}</main>
       </div>
