@@ -130,7 +130,7 @@ function MyRuns() {
   );
 }
 
-export const Route = createFileRoute("/runs")({
+export const Route = createFileRoute("/runs/")({
   head: () => ({ meta: [{ title: "My Runs — Tasqr" }] }),
   component: () => (
     <RequireAuth>

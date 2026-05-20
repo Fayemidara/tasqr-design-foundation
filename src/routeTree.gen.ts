@@ -12,11 +12,11 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as SignupRouteImport } from './routes/signup'
 import { Route as SigninRouteImport } from './routes/signin'
 import { Route as ShowcaseRouteImport } from './routes/showcase'
-import { Route as RunsRouteImport } from './routes/runs'
 import { Route as ProfileRouteImport } from './routes/profile'
 import { Route as ForgotPasswordRouteImport } from './routes/forgot-password'
 import { Route as BrowseRouteImport } from './routes/browse'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as RunsIndexRouteImport } from './routes/runs.index'
 import { Route as SellerSettingsRouteImport } from './routes/seller.settings'
 import { Route as SellerOnboardingRouteImport } from './routes/seller.onboarding'
 import { Route as SellerEarningsRouteImport } from './routes/seller.earnings'
@@ -41,11 +41,6 @@ const ShowcaseRoute = ShowcaseRouteImport.update({
   path: '/showcase',
   getParentRoute: () => rootRouteImport,
 } as any)
-const RunsRoute = RunsRouteImport.update({
-  id: '/runs',
-  path: '/runs',
-  getParentRoute: () => rootRouteImport,
-} as any)
 const ProfileRoute = ProfileRouteImport.update({
   id: '/profile',
   path: '/profile',
@@ -64,6 +59,11 @@ const BrowseRoute = BrowseRouteImport.update({
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const RunsIndexRoute = RunsIndexRouteImport.update({
+  id: '/runs/',
+  path: '/runs/',
   getParentRoute: () => rootRouteImport,
 } as any)
 const SellerSettingsRoute = SellerSettingsRouteImport.update({
@@ -112,7 +112,6 @@ export interface FileRoutesByFullPath {
   '/browse': typeof BrowseRoute
   '/forgot-password': typeof ForgotPasswordRoute
   '/profile': typeof ProfileRoute
-  '/runs': typeof RunsRouteWithChildren
   '/showcase': typeof ShowcaseRoute
   '/signin': typeof SigninRoute
   '/signup': typeof SignupRoute
@@ -123,6 +122,7 @@ export interface FileRoutesByFullPath {
   '/seller/earnings': typeof SellerEarningsRoute
   '/seller/onboarding': typeof SellerOnboardingRoute
   '/seller/settings': typeof SellerSettingsRoute
+  '/runs/': typeof RunsIndexRoute
   '/seller/agents/new': typeof SellerAgentsNewRoute
 }
 export interface FileRoutesByTo {
@@ -130,7 +130,6 @@ export interface FileRoutesByTo {
   '/browse': typeof BrowseRoute
   '/forgot-password': typeof ForgotPasswordRoute
   '/profile': typeof ProfileRoute
-  '/runs': typeof RunsRouteWithChildren
   '/showcase': typeof ShowcaseRoute
   '/signin': typeof SigninRoute
   '/signup': typeof SignupRoute
@@ -141,6 +140,7 @@ export interface FileRoutesByTo {
   '/seller/earnings': typeof SellerEarningsRoute
   '/seller/onboarding': typeof SellerOnboardingRoute
   '/seller/settings': typeof SellerSettingsRoute
+  '/runs': typeof RunsIndexRoute
   '/seller/agents/new': typeof SellerAgentsNewRoute
 }
 export interface FileRoutesById {
@@ -149,7 +149,6 @@ export interface FileRoutesById {
   '/browse': typeof BrowseRoute
   '/forgot-password': typeof ForgotPasswordRoute
   '/profile': typeof ProfileRoute
-  '/runs': typeof RunsRouteWithChildren
   '/showcase': typeof ShowcaseRoute
   '/signin': typeof SigninRoute
   '/signup': typeof SignupRoute
@@ -160,6 +159,7 @@ export interface FileRoutesById {
   '/seller/earnings': typeof SellerEarningsRoute
   '/seller/onboarding': typeof SellerOnboardingRoute
   '/seller/settings': typeof SellerSettingsRoute
+  '/runs/': typeof RunsIndexRoute
   '/seller/agents/new': typeof SellerAgentsNewRoute
 }
 export interface FileRouteTypes {
@@ -169,7 +169,6 @@ export interface FileRouteTypes {
     | '/browse'
     | '/forgot-password'
     | '/profile'
-    | '/runs'
     | '/showcase'
     | '/signin'
     | '/signup'
@@ -180,6 +179,7 @@ export interface FileRouteTypes {
     | '/seller/earnings'
     | '/seller/onboarding'
     | '/seller/settings'
+    | '/runs/'
     | '/seller/agents/new'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -187,7 +187,6 @@ export interface FileRouteTypes {
     | '/browse'
     | '/forgot-password'
     | '/profile'
-    | '/runs'
     | '/showcase'
     | '/signin'
     | '/signup'
@@ -198,6 +197,7 @@ export interface FileRouteTypes {
     | '/seller/earnings'
     | '/seller/onboarding'
     | '/seller/settings'
+    | '/runs'
     | '/seller/agents/new'
   id:
     | '__root__'
@@ -205,7 +205,6 @@ export interface FileRouteTypes {
     | '/browse'
     | '/forgot-password'
     | '/profile'
-    | '/runs'
     | '/showcase'
     | '/signin'
     | '/signup'
@@ -216,6 +215,7 @@ export interface FileRouteTypes {
     | '/seller/earnings'
     | '/seller/onboarding'
     | '/seller/settings'
+    | '/runs/'
     | '/seller/agents/new'
   fileRoutesById: FileRoutesById
 }
@@ -224,7 +224,6 @@ export interface RootRouteChildren {
   BrowseRoute: typeof BrowseRoute
   ForgotPasswordRoute: typeof ForgotPasswordRoute
   ProfileRoute: typeof ProfileRoute
-  RunsRoute: typeof RunsRouteWithChildren
   ShowcaseRoute: typeof ShowcaseRoute
   SigninRoute: typeof SigninRoute
   SignupRoute: typeof SignupRoute
@@ -233,6 +232,7 @@ export interface RootRouteChildren {
   SellerEarningsRoute: typeof SellerEarningsRoute
   SellerOnboardingRoute: typeof SellerOnboardingRoute
   SellerSettingsRoute: typeof SellerSettingsRoute
+  RunsIndexRoute: typeof RunsIndexRoute
   SellerAgentsNewRoute: typeof SellerAgentsNewRoute
 }
 
@@ -257,13 +257,6 @@ declare module '@tanstack/react-router' {
       path: '/showcase'
       fullPath: '/showcase'
       preLoaderRoute: typeof ShowcaseRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/runs': {
-      id: '/runs'
-      path: '/runs'
-      fullPath: '/runs'
-      preLoaderRoute: typeof RunsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/profile': {
@@ -292,6 +285,13 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/'
       preLoaderRoute: typeof IndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/runs/': {
+      id: '/runs/'
+      path: '/runs'
+      fullPath: '/runs/'
+      preLoaderRoute: typeof RunsIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/seller/settings': {
@@ -353,24 +353,11 @@ declare module '@tanstack/react-router' {
   }
 }
 
-interface RunsRouteChildren {
-  RunsIdRoute: typeof RunsIdRoute
-  RunsNewRoute: typeof RunsNewRoute
-}
-
-const RunsRouteChildren: RunsRouteChildren = {
-  RunsIdRoute: RunsIdRoute,
-  RunsNewRoute: RunsNewRoute,
-}
-
-const RunsRouteWithChildren = RunsRoute._addFileChildren(RunsRouteChildren)
-
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   BrowseRoute: BrowseRoute,
   ForgotPasswordRoute: ForgotPasswordRoute,
   ProfileRoute: ProfileRoute,
-  RunsRoute: RunsRouteWithChildren,
   ShowcaseRoute: ShowcaseRoute,
   SigninRoute: SigninRoute,
   SignupRoute: SignupRoute,
@@ -379,8 +366,19 @@ const rootRouteChildren: RootRouteChildren = {
   SellerEarningsRoute: SellerEarningsRoute,
   SellerOnboardingRoute: SellerOnboardingRoute,
   SellerSettingsRoute: SellerSettingsRoute,
+  RunsIndexRoute: RunsIndexRoute,
   SellerAgentsNewRoute: SellerAgentsNewRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
+
+import type { getRouter } from './router.tsx'
+import type { startInstance } from './start.ts'
+declare module '@tanstack/react-start' {
+  interface Register {
+    ssr: true
+    router: Awaited<ReturnType<typeof getRouter>>
+    config: Awaited<ReturnType<typeof startInstance.getOptions>>
+  }
+}
