@@ -1,4 +1,4 @@
-import { useMemo, useState, useEffect } from "react";
+import { useMemo, useState } from "react";
 import { GripVertical, Trash2, X, Plus } from "lucide-react";
 import {
   DndContext,
