@@ -4,10 +4,14 @@ export function OnboardingLayout({
   step,
   totalSteps,
   children,
+  maxWidth = 600,
+  bare = false,
 }: {
   step: number;
   totalSteps: number;
   children: ReactNode;
+  maxWidth?: number;
+  bare?: boolean;
 }) {
   return (
     <div className="min-h-screen flex flex-col bg-background">
@@ -17,7 +21,7 @@ export function OnboardingLayout({
         </span>
       </header>
       <main className="flex-1 flex flex-col items-center px-4 py-10">
-        <div className="w-full max-w-[600px]">
+        <div className="w-full" style={{ maxWidth }}>
           <div className="mb-6 flex items-center gap-3">
             <div className="font-mono text-[11px] uppercase tracking-[0.05em] text-muted-foreground">
               Step {step} of {totalSteps}
@@ -29,9 +33,13 @@ export function OnboardingLayout({
               />
             </div>
           </div>
-          <div className="bg-surface-raised border border-border rounded-[4px] p-6">
-            {children}
-          </div>
+          {bare ? (
+            children
+          ) : (
+            <div className="bg-surface-raised border border-border rounded-[4px] p-6">
+              {children}
+            </div>
+          )}
         </div>
       </main>
     </div>

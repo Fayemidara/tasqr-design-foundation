@@ -299,6 +299,7 @@ export type Database = {
           api_key_prefix: string | null
           bio: string | null
           created_at: string
+          draft_input_schema: Json | null
           handle: string | null
           id: string
           reliability_score: number
@@ -314,6 +315,7 @@ export type Database = {
           api_key_prefix?: string | null
           bio?: string | null
           created_at?: string
+          draft_input_schema?: Json | null
           handle?: string | null
           id?: string
           reliability_score?: number
@@ -329,6 +331,7 @@ export type Database = {
           api_key_prefix?: string | null
           bio?: string | null
           created_at?: string
+          draft_input_schema?: Json | null
           handle?: string | null
           id?: string
           reliability_score?: number
