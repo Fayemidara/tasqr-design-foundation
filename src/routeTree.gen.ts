@@ -12,6 +12,7 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as SignupRouteImport } from './routes/signup'
 import { Route as SigninRouteImport } from './routes/signin'
 import { Route as ShowcaseRouteImport } from './routes/showcase'
+import { Route as RunsRouteImport } from './routes/runs'
 import { Route as ProfileRouteImport } from './routes/profile'
 import { Route as ForgotPasswordRouteImport } from './routes/forgot-password'
 import { Route as BrowseRouteImport } from './routes/browse'
@@ -41,6 +42,11 @@ const ShowcaseRoute = ShowcaseRouteImport.update({
   path: '/showcase',
   getParentRoute: () => rootRouteImport,
 } as any)
+const RunsRoute = RunsRouteImport.update({
+  id: '/runs',
+  path: '/runs',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ProfileRoute = ProfileRouteImport.update({
   id: '/profile',
   path: '/profile',
@@ -62,9 +68,9 @@ const IndexRoute = IndexRouteImport.update({
   getParentRoute: () => rootRouteImport,
 } as any)
 const RunsIndexRoute = RunsIndexRouteImport.update({
-  id: '/runs/',
-  path: '/runs/',
-  getParentRoute: () => rootRouteImport,
+  id: '/',
+  path: '/',
+  getParentRoute: () => RunsRoute,
 } as any)
 const SellerSettingsRoute = SellerSettingsRouteImport.update({
   id: '/seller/settings',
@@ -112,6 +118,7 @@ export interface FileRoutesByFullPath {
   '/browse': typeof BrowseRoute
   '/forgot-password': typeof ForgotPasswordRoute
   '/profile': typeof ProfileRoute
+  '/runs': typeof RunsRouteWithChildren
   '/showcase': typeof ShowcaseRoute
   '/signin': typeof SigninRoute
   '/signup': typeof SignupRoute
@@ -149,6 +156,7 @@ export interface FileRoutesById {
   '/browse': typeof BrowseRoute
   '/forgot-password': typeof ForgotPasswordRoute
   '/profile': typeof ProfileRoute
+  '/runs': typeof RunsRouteWithChildren
   '/showcase': typeof ShowcaseRoute
   '/signin': typeof SigninRoute
   '/signup': typeof SignupRoute
@@ -169,6 +177,7 @@ export interface FileRouteTypes {
     | '/browse'
     | '/forgot-password'
     | '/profile'
+    | '/runs'
     | '/showcase'
     | '/signin'
     | '/signup'
@@ -205,6 +214,7 @@ export interface FileRouteTypes {
     | '/browse'
     | '/forgot-password'
     | '/profile'
+    | '/runs'
     | '/showcase'
     | '/signin'
     | '/signup'
@@ -224,6 +234,7 @@ export interface RootRouteChildren {
   BrowseRoute: typeof BrowseRoute
   ForgotPasswordRoute: typeof ForgotPasswordRoute
   ProfileRoute: typeof ProfileRoute
+  RunsRoute: typeof RunsRouteWithChildren
   ShowcaseRoute: typeof ShowcaseRoute
   SigninRoute: typeof SigninRoute
   SignupRoute: typeof SignupRoute
@@ -232,7 +243,6 @@ export interface RootRouteChildren {
   SellerEarningsRoute: typeof SellerEarningsRoute
   SellerOnboardingRoute: typeof SellerOnboardingRoute
   SellerSettingsRoute: typeof SellerSettingsRoute
-  RunsIndexRoute: typeof RunsIndexRoute
   SellerAgentsNewRoute: typeof SellerAgentsNewRoute
 }
 
@@ -257,6 +267,13 @@ declare module '@tanstack/react-router' {
       path: '/showcase'
       fullPath: '/showcase'
       preLoaderRoute: typeof ShowcaseRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/runs': {
+      id: '/runs'
+      path: '/runs'
+      fullPath: '/runs'
+      preLoaderRoute: typeof RunsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/profile': {
@@ -289,10 +306,10 @@ declare module '@tanstack/react-router' {
     }
     '/runs/': {
       id: '/runs/'
-      path: '/runs'
+      path: '/'
       fullPath: '/runs/'
       preLoaderRoute: typeof RunsIndexRouteImport
-      parentRoute: typeof rootRouteImport
+      parentRoute: typeof RunsRoute
     }
     '/seller/settings': {
       id: '/seller/settings'
@@ -353,11 +370,26 @@ declare module '@tanstack/react-router' {
   }
 }
 
+interface RunsRouteChildren {
+  RunsIdRoute: typeof RunsIdRoute
+  RunsNewRoute: typeof RunsNewRoute
+  RunsIndexRoute: typeof RunsIndexRoute
+}
+
+const RunsRouteChildren: RunsRouteChildren = {
+  RunsIdRoute: RunsIdRoute,
+  RunsNewRoute: RunsNewRoute,
+  RunsIndexRoute: RunsIndexRoute,
+}
+
+const RunsRouteWithChildren = RunsRoute._addFileChildren(RunsRouteChildren)
+
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   BrowseRoute: BrowseRoute,
   ForgotPasswordRoute: ForgotPasswordRoute,
   ProfileRoute: ProfileRoute,
+  RunsRoute: RunsRouteWithChildren,
   ShowcaseRoute: ShowcaseRoute,
   SigninRoute: SigninRoute,
   SignupRoute: SignupRoute,
@@ -366,7 +398,6 @@ const rootRouteChildren: RootRouteChildren = {
   SellerEarningsRoute: SellerEarningsRoute,
   SellerOnboardingRoute: SellerOnboardingRoute,
   SellerSettingsRoute: SellerSettingsRoute,
-  RunsIndexRoute: RunsIndexRoute,
   SellerAgentsNewRoute: SellerAgentsNewRoute,
 }
 export const routeTree = rootRouteImport
