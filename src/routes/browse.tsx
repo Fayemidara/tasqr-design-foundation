@@ -241,7 +241,7 @@ function BrowseInner() {
                   <div className="mt-auto pt-2 border-t border-border font-mono text-xs text-muted-foreground">
                     by @{a.seller?.handle ?? "unknown"}
                   </div>
-                </Link>
+                </a>
               ))}
             </div>
           )}
