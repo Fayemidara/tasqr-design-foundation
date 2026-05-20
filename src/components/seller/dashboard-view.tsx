@@ -210,12 +210,7 @@ export function SellerDashboardView() {
                   {agents.map((a) => (
                     <tr key={a.id} className="border-b border-border last:border-0">
                       <td className="px-4 py-3">
-                        <Link
-                          to="/seller/agents"
-                          className="font-mono text-foreground hover:text-primary"
-                        >
-                          {a.name}
-                        </Link>
+                        <span className="font-mono text-foreground">{a.name}</span>
                       </td>
                       <td className="px-4 py-3">
                         {a.category ? <Badge variant="category">{a.category}</Badge> : "—"}
