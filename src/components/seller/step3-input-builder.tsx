@@ -158,7 +158,7 @@ export function Step3InputBuilder({
           <div className="mb-4">
             <Button
               type="button"
-              onClick={() => setFields((fs) => [...fs, newField()])}
+              onClick={() => setFields((fs) => [...fs, makeField(nextId())])}
             >
               <Plus className="h-4 w-4 mr-1" /> Add Field
             </Button>
