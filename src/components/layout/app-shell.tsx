@@ -1,31 +1,93 @@
-import { ReactNode } from "react";
+import { ReactNode, useEffect, useRef, useState } from "react";
+import { Link, useLocation, useNavigate } from "@tanstack/react-router";
+import { ChevronDown } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useAuth } from "@/hooks/use-auth";
 
-const navItems = ["Dashboard", "Agents", "Marketplace", "Analytics", "Settings"];
+const navItems = [
+  { label: "Browse", to: "/browse" },
+  { label: "My Runs", to: "/runs" },
+];
 
 export function AppShell({ children }: { children: ReactNode }) {
+  const { user, signOut } = useAuth();
+  const navigate = useNavigate();
+  const location = useLocation();
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const onClick = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    };
+    document.addEventListener("mousedown", onClick);
+    return () => document.removeEventListener("mousedown", onClick);
+  }, []);
+
+  const handleSignOut = async () => {
+    await signOut();
+    navigate({ to: "/signin" });
+  };
+
   return (
     <div className="min-h-screen flex flex-col bg-background">
-      <header className="h-[60px] bg-sidebar flex items-center px-6 border-b border-border">
+      <header className="h-[60px] bg-sidebar flex items-center justify-between px-6 border-b border-border">
         <span className="font-mono text-lg font-semibold tracking-tight text-sidebar-foreground">
           TASQR
         </span>
+        {user && (
+          <div className="relative" ref={ref}>
+            <button
+              onClick={() => setOpen((v) => !v)}
+              className="flex items-center gap-2 font-mono text-sm text-sidebar-foreground hover:text-white transition-colors"
+            >
+              <span>{user.email}</span>
+              <ChevronDown className="h-4 w-4" />
+            </button>
+            {open && (
+              <div className="absolute right-0 mt-2 w-48 bg-surface-raised border border-border rounded-[4px] py-1 z-50">
+                <Link
+                  to="/profile"
+                  onClick={() => setOpen(false)}
+                  className="block px-3 py-2 font-mono text-sm text-foreground hover:bg-white/5"
+                >
+                  Profile
+                </Link>
+                <button
+                  onClick={() => setOpen(false)}
+                  className="block w-full text-left px-3 py-2 font-mono text-sm text-foreground hover:bg-white/5"
+                >
+                  Become a Seller
+                </button>
+                <button
+                  onClick={handleSignOut}
+                  className="block w-full text-left px-3 py-2 font-mono text-sm text-foreground hover:bg-white/5"
+                >
+                  Sign Out
+                </button>
+              </div>
+            )}
+          </div>
+        )}
       </header>
       <div className="flex flex-1 min-h-0">
         <aside className="w-[240px] bg-sidebar border-r border-border py-4">
           <nav className="flex flex-col gap-1 px-3">
-            {navItems.map((item, i) => (
-              <a
-                key={item}
-                href="#"
-                className={cn(
-                  "font-mono text-sm px-3 py-2 rounded-[4px] text-sidebar-foreground/80 hover:bg-white/5 hover:text-sidebar-foreground transition-colors",
-                  i === 0 && "bg-white/10 text-sidebar-foreground",
-                )}
-              >
-                {item}
-              </a>
-            ))}
+            {navItems.map((item) => {
+              const active = location.pathname.startsWith(item.to);
+              return (
+                <Link
+                  key={item.to}
+                  to={item.to}
+                  className={cn(
+                    "font-mono text-sm px-3 py-2 rounded-[4px] text-sidebar-foreground/80 hover:bg-white/5 hover:text-sidebar-foreground transition-colors",
+                    active && "bg-white/10 text-sidebar-foreground",
+                  )}
+                >
+                  {item.label}
+                </Link>
+              );
+            })}
           </nav>
         </aside>
         <main className="flex-1 bg-background overflow-auto">{children}</main>
