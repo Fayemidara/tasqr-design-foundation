@@ -47,6 +47,7 @@ function SellerOnboarding() {
   const { user } = useAuth();
   const navigate = useNavigate();
   const [step, setStep] = useState(1);
+  const [step4Data, setStep4Data] = useState<Step4Data | undefined>(undefined);
 
   // Step 1
   const [handle, setHandle] = useState("");
