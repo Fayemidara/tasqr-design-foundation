@@ -8,6 +8,7 @@ import { Input, Textarea, Label } from "@/components/ui/tasqr-form";
 import { useAuth } from "@/hooks/use-auth";
 import { supabase } from "@/integrations/supabase/client";
 import { Step3InputBuilder } from "@/components/seller/step3-input-builder";
+import { Step4ConnectAgent, type Step4Data } from "@/components/seller/step4-connect-agent";
 
 const TOTAL_STEPS = 6;
 const HANDLE_RE = /^[a-zA-Z0-9_]+$/;
@@ -46,6 +47,7 @@ function SellerOnboarding() {
   const { user } = useAuth();
   const navigate = useNavigate();
   const [step, setStep] = useState(1);
+  const [step4Data, setStep4Data] = useState<Step4Data | undefined>(undefined);
 
   // Step 1
   const [handle, setHandle] = useState("");
@@ -205,7 +207,18 @@ function SellerOnboarding() {
         />
       )}
 
-      {step >= 4 && (
+      {step === 4 && (
+        <Step4ConnectAgent
+          initial={step4Data}
+          onContinue={(data) => {
+            setStep4Data(data);
+            setStep(5);
+          }}
+          onBack={() => setStep(3)}
+        />
+      )}
+
+      {step >= 5 && (
         <>
           <h2 className="font-mono text-[24px] mb-2">Step {step}</h2>
           <p className="font-sans text-sm text-muted-foreground">Coming soon.</p>
