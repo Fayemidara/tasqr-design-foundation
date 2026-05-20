@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute } from "@tanstack/react-router";
 import { Search, Star } from "lucide-react";
 import { AppShell } from "@/components/layout/app-shell";
 import { RequireAuth } from "@/components/auth/require-auth";
