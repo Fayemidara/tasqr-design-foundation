@@ -74,8 +74,10 @@ function Ellipsis() {
 
 function RunNewInner() {
   const { user } = useAuth();
-  const search = useSearch({ strict: false }) as { agent?: string };
-  const slugOrId = search.agent ?? "";
+  const slugOrId =
+    typeof window !== "undefined"
+      ? new URLSearchParams(window.location.search).get("agent") ?? ""
+      : "";
 
   const [agent, setAgent] = useState<AgentRow | null>(null);
   const [loading, setLoading] = useState(true);
