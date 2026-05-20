@@ -5,9 +5,16 @@ import { cn } from "@/lib/utils";
 import { useAuth } from "@/hooks/use-auth";
 import { supabase } from "@/integrations/supabase/client";
 
-const navItems = [
+const buyerNav = [
   { label: "Browse", to: "/browse" },
   { label: "My Runs", to: "/runs" },
+];
+
+const sellerNav = [
+  { label: "Dashboard", to: "/seller/dashboard" },
+  { label: "My Agents", to: "/seller/agents" },
+  { label: "Earnings", to: "/seller/earnings" },
+  { label: "Settings", to: "/seller/settings" },
 ];
 
 export function AppShell({ children }: { children: ReactNode }) {
