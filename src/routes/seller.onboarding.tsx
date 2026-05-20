@@ -207,7 +207,18 @@ function SellerOnboarding() {
         />
       )}
 
-      {step >= 4 && (
+      {step === 4 && (
+        <Step4ConnectAgent
+          initial={step4Data}
+          onContinue={(data) => {
+            setStep4Data(data);
+            setStep(5);
+          }}
+          onBack={() => setStep(3)}
+        />
+      )}
+
+      {step >= 5 && (
         <>
           <h2 className="font-mono text-[24px] mb-2">Step {step}</h2>
           <p className="font-sans text-sm text-muted-foreground">Coming soon.</p>
