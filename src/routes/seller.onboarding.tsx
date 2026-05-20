@@ -9,6 +9,7 @@ import { useAuth } from "@/hooks/use-auth";
 import { supabase } from "@/integrations/supabase/client";
 import { Step3InputBuilder } from "@/components/seller/step3-input-builder";
 import { Step4ConnectAgent, type Step4Data } from "@/components/seller/step4-connect-agent";
+import { Step5Listing, type Step5Data } from "@/components/seller/step5-listing";
 
 const TOTAL_STEPS = 6;
 const HANDLE_RE = /^[a-zA-Z0-9_]+$/;
@@ -48,6 +49,7 @@ function SellerOnboarding() {
   const navigate = useNavigate();
   const [step, setStep] = useState(1);
   const [step4Data, setStep4Data] = useState<Step4Data | undefined>(undefined);
+  const [step5Data, setStep5Data] = useState<Step5Data | undefined>(undefined);
 
   // Step 1
   const [handle, setHandle] = useState("");
@@ -218,7 +220,18 @@ function SellerOnboarding() {
         />
       )}
 
-      {step >= 5 && (
+      {step === 5 && (
+        <Step5Listing
+          initial={step5Data}
+          onContinue={(data) => {
+            setStep5Data(data);
+            setStep(6);
+          }}
+          onBack={() => setStep(4)}
+        />
+      )}
+
+      {step >= 6 && (
         <>
           <h2 className="font-mono text-[24px] mb-2">Step {step}</h2>
           <p className="font-sans text-sm text-muted-foreground">Coming soon.</p>
