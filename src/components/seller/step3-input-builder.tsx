@@ -51,9 +51,9 @@ function toFieldName(label: string) {
     .replace(/^_|_$/g, "");
 }
 
-function newField(): BuilderField {
+function makeField(id: string): BuilderField {
   return {
-    id: crypto.randomUUID(),
+    id,
     label: "",
     type: "text",
     placeholder: "",
