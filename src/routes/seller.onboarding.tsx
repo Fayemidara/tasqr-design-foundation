@@ -51,6 +51,7 @@ function SellerOnboarding() {
   const [step, setStep] = useState(1);
   const [step4Data, setStep4Data] = useState<Step4Data | undefined>(undefined);
   const [step5Data, setStep5Data] = useState<Step5Data | undefined>(undefined);
+  const [apiKeyPrefix, setApiKeyPrefix] = useState<string | null>(null);
 
   // Step 1
   const [handle, setHandle] = useState("");
