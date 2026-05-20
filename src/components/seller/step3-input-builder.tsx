@@ -133,7 +133,7 @@ export function Step3InputBuilder({
     setSaving(true);
     const { error } = await supabase
       .from("seller_profiles")
-      .update({ draft_input_schema: schema })
+      .update({ draft_input_schema: schema as unknown as never })
       .eq("user_id", user.id);
     setSaving(false);
     if (error) {
