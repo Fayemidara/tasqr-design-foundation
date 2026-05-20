@@ -17,10 +17,13 @@ import { Route as ProfileRouteImport } from './routes/profile'
 import { Route as ForgotPasswordRouteImport } from './routes/forgot-password'
 import { Route as BrowseRouteImport } from './routes/browse'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as RunsIndexRouteImport } from './routes/runs.index'
 import { Route as SellerSettingsRouteImport } from './routes/seller.settings'
 import { Route as SellerOnboardingRouteImport } from './routes/seller.onboarding'
 import { Route as SellerEarningsRouteImport } from './routes/seller.earnings'
 import { Route as SellerDashboardRouteImport } from './routes/seller.dashboard'
+import { Route as RunsNewRouteImport } from './routes/runs.new'
+import { Route as RunsIdRouteImport } from './routes/runs.$id'
 import { Route as AgentsSlugRouteImport } from './routes/agents.$slug'
 import { Route as SellerAgentsNewRouteImport } from './routes/seller.agents.new'
 
@@ -64,6 +67,11 @@ const IndexRoute = IndexRouteImport.update({
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const RunsIndexRoute = RunsIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => RunsRoute,
+} as any)
 const SellerSettingsRoute = SellerSettingsRouteImport.update({
   id: '/seller/settings',
   path: '/seller/settings',
@@ -84,6 +92,16 @@ const SellerDashboardRoute = SellerDashboardRouteImport.update({
   path: '/seller/dashboard',
   getParentRoute: () => rootRouteImport,
 } as any)
+const RunsNewRoute = RunsNewRouteImport.update({
+  id: '/new',
+  path: '/new',
+  getParentRoute: () => RunsRoute,
+} as any)
+const RunsIdRoute = RunsIdRouteImport.update({
+  id: '/$id',
+  path: '/$id',
+  getParentRoute: () => RunsRoute,
+} as any)
 const AgentsSlugRoute = AgentsSlugRouteImport.update({
   id: '/agents/$slug',
   path: '/agents/$slug',
@@ -100,15 +118,18 @@ export interface FileRoutesByFullPath {
   '/browse': typeof BrowseRoute
   '/forgot-password': typeof ForgotPasswordRoute
   '/profile': typeof ProfileRoute
-  '/runs': typeof RunsRoute
+  '/runs': typeof RunsRouteWithChildren
   '/showcase': typeof ShowcaseRoute
   '/signin': typeof SigninRoute
   '/signup': typeof SignupRoute
   '/agents/$slug': typeof AgentsSlugRoute
+  '/runs/$id': typeof RunsIdRoute
+  '/runs/new': typeof RunsNewRoute
   '/seller/dashboard': typeof SellerDashboardRoute
   '/seller/earnings': typeof SellerEarningsRoute
   '/seller/onboarding': typeof SellerOnboardingRoute
   '/seller/settings': typeof SellerSettingsRoute
+  '/runs/': typeof RunsIndexRoute
   '/seller/agents/new': typeof SellerAgentsNewRoute
 }
 export interface FileRoutesByTo {
@@ -116,15 +137,17 @@ export interface FileRoutesByTo {
   '/browse': typeof BrowseRoute
   '/forgot-password': typeof ForgotPasswordRoute
   '/profile': typeof ProfileRoute
-  '/runs': typeof RunsRoute
   '/showcase': typeof ShowcaseRoute
   '/signin': typeof SigninRoute
   '/signup': typeof SignupRoute
   '/agents/$slug': typeof AgentsSlugRoute
+  '/runs/$id': typeof RunsIdRoute
+  '/runs/new': typeof RunsNewRoute
   '/seller/dashboard': typeof SellerDashboardRoute
   '/seller/earnings': typeof SellerEarningsRoute
   '/seller/onboarding': typeof SellerOnboardingRoute
   '/seller/settings': typeof SellerSettingsRoute
+  '/runs': typeof RunsIndexRoute
   '/seller/agents/new': typeof SellerAgentsNewRoute
 }
 export interface FileRoutesById {
@@ -133,15 +156,18 @@ export interface FileRoutesById {
   '/browse': typeof BrowseRoute
   '/forgot-password': typeof ForgotPasswordRoute
   '/profile': typeof ProfileRoute
-  '/runs': typeof RunsRoute
+  '/runs': typeof RunsRouteWithChildren
   '/showcase': typeof ShowcaseRoute
   '/signin': typeof SigninRoute
   '/signup': typeof SignupRoute
   '/agents/$slug': typeof AgentsSlugRoute
+  '/runs/$id': typeof RunsIdRoute
+  '/runs/new': typeof RunsNewRoute
   '/seller/dashboard': typeof SellerDashboardRoute
   '/seller/earnings': typeof SellerEarningsRoute
   '/seller/onboarding': typeof SellerOnboardingRoute
   '/seller/settings': typeof SellerSettingsRoute
+  '/runs/': typeof RunsIndexRoute
   '/seller/agents/new': typeof SellerAgentsNewRoute
 }
 export interface FileRouteTypes {
@@ -156,10 +182,13 @@ export interface FileRouteTypes {
     | '/signin'
     | '/signup'
     | '/agents/$slug'
+    | '/runs/$id'
+    | '/runs/new'
     | '/seller/dashboard'
     | '/seller/earnings'
     | '/seller/onboarding'
     | '/seller/settings'
+    | '/runs/'
     | '/seller/agents/new'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -167,15 +196,17 @@ export interface FileRouteTypes {
     | '/browse'
     | '/forgot-password'
     | '/profile'
-    | '/runs'
     | '/showcase'
     | '/signin'
     | '/signup'
     | '/agents/$slug'
+    | '/runs/$id'
+    | '/runs/new'
     | '/seller/dashboard'
     | '/seller/earnings'
     | '/seller/onboarding'
     | '/seller/settings'
+    | '/runs'
     | '/seller/agents/new'
   id:
     | '__root__'
@@ -188,10 +219,13 @@ export interface FileRouteTypes {
     | '/signin'
     | '/signup'
     | '/agents/$slug'
+    | '/runs/$id'
+    | '/runs/new'
     | '/seller/dashboard'
     | '/seller/earnings'
     | '/seller/onboarding'
     | '/seller/settings'
+    | '/runs/'
     | '/seller/agents/new'
   fileRoutesById: FileRoutesById
 }
@@ -200,7 +234,7 @@ export interface RootRouteChildren {
   BrowseRoute: typeof BrowseRoute
   ForgotPasswordRoute: typeof ForgotPasswordRoute
   ProfileRoute: typeof ProfileRoute
-  RunsRoute: typeof RunsRoute
+  RunsRoute: typeof RunsRouteWithChildren
   ShowcaseRoute: typeof ShowcaseRoute
   SigninRoute: typeof SigninRoute
   SignupRoute: typeof SignupRoute
@@ -270,6 +304,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/runs/': {
+      id: '/runs/'
+      path: '/'
+      fullPath: '/runs/'
+      preLoaderRoute: typeof RunsIndexRouteImport
+      parentRoute: typeof RunsRoute
+    }
     '/seller/settings': {
       id: '/seller/settings'
       path: '/seller/settings'
@@ -298,6 +339,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof SellerDashboardRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/runs/new': {
+      id: '/runs/new'
+      path: '/new'
+      fullPath: '/runs/new'
+      preLoaderRoute: typeof RunsNewRouteImport
+      parentRoute: typeof RunsRoute
+    }
+    '/runs/$id': {
+      id: '/runs/$id'
+      path: '/$id'
+      fullPath: '/runs/$id'
+      preLoaderRoute: typeof RunsIdRouteImport
+      parentRoute: typeof RunsRoute
+    }
     '/agents/$slug': {
       id: '/agents/$slug'
       path: '/agents/$slug'
@@ -315,12 +370,26 @@ declare module '@tanstack/react-router' {
   }
 }
 
+interface RunsRouteChildren {
+  RunsIdRoute: typeof RunsIdRoute
+  RunsNewRoute: typeof RunsNewRoute
+  RunsIndexRoute: typeof RunsIndexRoute
+}
+
+const RunsRouteChildren: RunsRouteChildren = {
+  RunsIdRoute: RunsIdRoute,
+  RunsNewRoute: RunsNewRoute,
+  RunsIndexRoute: RunsIndexRoute,
+}
+
+const RunsRouteWithChildren = RunsRoute._addFileChildren(RunsRouteChildren)
+
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   BrowseRoute: BrowseRoute,
   ForgotPasswordRoute: ForgotPasswordRoute,
   ProfileRoute: ProfileRoute,
-  RunsRoute: RunsRoute,
+  RunsRoute: RunsRouteWithChildren,
   ShowcaseRoute: ShowcaseRoute,
   SigninRoute: SigninRoute,
   SignupRoute: SignupRoute,
@@ -334,13 +403,3 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
-
-import type { getRouter } from './router.tsx'
-import type { startInstance } from './start.ts'
-declare module '@tanstack/react-start' {
-  interface Register {
-    ssr: true
-    router: Awaited<ReturnType<typeof getRouter>>
-    config: Awaited<ReturnType<typeof startInstance.getOptions>>
-  }
-}
