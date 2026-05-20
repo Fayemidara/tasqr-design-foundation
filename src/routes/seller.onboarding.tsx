@@ -202,7 +202,14 @@ function SellerOnboarding() {
         </>
       )}
 
-      {step === 2 && <Step2 onContinue={() => setStep(3)} />}
+      {step === 2 && (
+        <Step2
+          onContinue={(prefix) => {
+            setApiKeyPrefix(prefix);
+            setStep(3);
+          }}
+        />
+      )}
 
       {step === 3 && (
         <Step3InputBuilder
@@ -233,17 +240,21 @@ function SellerOnboarding() {
         />
       )}
 
-      {step >= 6 && (
-        <>
-          <h2 className="font-mono text-[24px] mb-2">Step {step}</h2>
-          <p className="font-sans text-sm text-muted-foreground">Coming soon.</p>
-        </>
+      {step === 6 && step4Data && step5Data && (
+        <Step6Review
+          step1={{ handle, displayName, bio, website }}
+          apiKeyPrefix={apiKeyPrefix}
+          step4={step4Data}
+          step5={step5Data}
+          onEdit={(n) => setStep(n)}
+          onBack={() => setStep(5)}
+        />
       )}
     </OnboardingLayout>
   );
 }
 
-function Step2({ onContinue }: { onContinue: () => void }) {
+function Step2({ onContinue }: { onContinue: (prefix: string) => void }) {
   const { user } = useAuth();
   const [apiKey, setApiKey] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
