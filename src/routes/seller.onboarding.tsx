@@ -343,7 +343,11 @@ function Step2({ onContinue }: { onContinue: (prefix: string) => void }) {
       {error && <p className="mt-3 font-mono text-xs text-destructive">{error}</p>}
 
       <div className="mt-8">
-        <Button onClick={onContinue} disabled={!apiKey} className="w-full">
+        <Button
+          onClick={() => apiKey && onContinue(apiKey.slice(0, 12))}
+          disabled={!apiKey}
+          className="w-full"
+        >
           Continue
         </Button>
       </div>
