@@ -13,7 +13,6 @@ const buyerNav = [
 
 const sellerNav = [
   { label: "Dashboard", to: "/seller/dashboard" },
-  { label: "My Agents", to: "/seller/agents" },
   { label: "Earnings", to: "/seller/earnings" },
   { label: "Settings", to: "/seller/settings" },
 ];
