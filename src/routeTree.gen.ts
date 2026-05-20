@@ -21,6 +21,7 @@ import { Route as SellerSettingsRouteImport } from './routes/seller.settings'
 import { Route as SellerOnboardingRouteImport } from './routes/seller.onboarding'
 import { Route as SellerEarningsRouteImport } from './routes/seller.earnings'
 import { Route as SellerDashboardRouteImport } from './routes/seller.dashboard'
+import { Route as AgentsSlugRouteImport } from './routes/agents.$slug'
 import { Route as SellerAgentsNewRouteImport } from './routes/seller.agents.new'
 
 const SignupRoute = SignupRouteImport.update({
@@ -83,6 +84,11 @@ const SellerDashboardRoute = SellerDashboardRouteImport.update({
   path: '/seller/dashboard',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AgentsSlugRoute = AgentsSlugRouteImport.update({
+  id: '/agents/$slug',
+  path: '/agents/$slug',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const SellerAgentsNewRoute = SellerAgentsNewRouteImport.update({
   id: '/seller/agents/new',
   path: '/seller/agents/new',
@@ -98,6 +104,7 @@ export interface FileRoutesByFullPath {
   '/showcase': typeof ShowcaseRoute
   '/signin': typeof SigninRoute
   '/signup': typeof SignupRoute
+  '/agents/$slug': typeof AgentsSlugRoute
   '/seller/dashboard': typeof SellerDashboardRoute
   '/seller/earnings': typeof SellerEarningsRoute
   '/seller/onboarding': typeof SellerOnboardingRoute
@@ -113,6 +120,7 @@ export interface FileRoutesByTo {
   '/showcase': typeof ShowcaseRoute
   '/signin': typeof SigninRoute
   '/signup': typeof SignupRoute
+  '/agents/$slug': typeof AgentsSlugRoute
   '/seller/dashboard': typeof SellerDashboardRoute
   '/seller/earnings': typeof SellerEarningsRoute
   '/seller/onboarding': typeof SellerOnboardingRoute
@@ -129,6 +137,7 @@ export interface FileRoutesById {
   '/showcase': typeof ShowcaseRoute
   '/signin': typeof SigninRoute
   '/signup': typeof SignupRoute
+  '/agents/$slug': typeof AgentsSlugRoute
   '/seller/dashboard': typeof SellerDashboardRoute
   '/seller/earnings': typeof SellerEarningsRoute
   '/seller/onboarding': typeof SellerOnboardingRoute
@@ -146,6 +155,7 @@ export interface FileRouteTypes {
     | '/showcase'
     | '/signin'
     | '/signup'
+    | '/agents/$slug'
     | '/seller/dashboard'
     | '/seller/earnings'
     | '/seller/onboarding'
@@ -161,6 +171,7 @@ export interface FileRouteTypes {
     | '/showcase'
     | '/signin'
     | '/signup'
+    | '/agents/$slug'
     | '/seller/dashboard'
     | '/seller/earnings'
     | '/seller/onboarding'
@@ -176,6 +187,7 @@ export interface FileRouteTypes {
     | '/showcase'
     | '/signin'
     | '/signup'
+    | '/agents/$slug'
     | '/seller/dashboard'
     | '/seller/earnings'
     | '/seller/onboarding'
@@ -192,6 +204,7 @@ export interface RootRouteChildren {
   ShowcaseRoute: typeof ShowcaseRoute
   SigninRoute: typeof SigninRoute
   SignupRoute: typeof SignupRoute
+  AgentsSlugRoute: typeof AgentsSlugRoute
   SellerDashboardRoute: typeof SellerDashboardRoute
   SellerEarningsRoute: typeof SellerEarningsRoute
   SellerOnboardingRoute: typeof SellerOnboardingRoute
@@ -285,6 +298,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof SellerDashboardRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/agents/$slug': {
+      id: '/agents/$slug'
+      path: '/agents/$slug'
+      fullPath: '/agents/$slug'
+      preLoaderRoute: typeof AgentsSlugRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/seller/agents/new': {
       id: '/seller/agents/new'
       path: '/seller/agents/new'
@@ -304,6 +324,7 @@ const rootRouteChildren: RootRouteChildren = {
   ShowcaseRoute: ShowcaseRoute,
   SigninRoute: SigninRoute,
   SignupRoute: SignupRoute,
+  AgentsSlugRoute: AgentsSlugRoute,
   SellerDashboardRoute: SellerDashboardRoute,
   SellerEarningsRoute: SellerEarningsRoute,
   SellerOnboardingRoute: SellerOnboardingRoute,
@@ -313,13 +334,3 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
-
-import type { getRouter } from './router.tsx'
-import type { startInstance } from './start.ts'
-declare module '@tanstack/react-start' {
-  interface Register {
-    ssr: true
-    router: Awaited<ReturnType<typeof getRouter>>
-    config: Awaited<ReturnType<typeof startInstance.getOptions>>
-  }
-}
