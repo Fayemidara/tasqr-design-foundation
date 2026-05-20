@@ -14,13 +14,412 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      agents: {
+        Row: {
+          average_rating: number
+          category: string | null
+          created_at: string
+          demo_inputs: Json | null
+          demo_output: string | null
+          endpoint_url: string | null
+          full_description: string | null
+          id: string
+          input_schema: Json | null
+          name: string
+          one_time_price: number | null
+          output_type: string | null
+          pricing_model: string | null
+          processing_time: string | null
+          review_count: number
+          run_count: number
+          seller_id: string
+          short_description: string
+          slug: string | null
+          status: string
+          subscription_price: number | null
+        }
+        Insert: {
+          average_rating?: number
+          category?: string | null
+          created_at?: string
+          demo_inputs?: Json | null
+          demo_output?: string | null
+          endpoint_url?: string | null
+          full_description?: string | null
+          id?: string
+          input_schema?: Json | null
+          name: string
+          one_time_price?: number | null
+          output_type?: string | null
+          pricing_model?: string | null
+          processing_time?: string | null
+          review_count?: number
+          run_count?: number
+          seller_id: string
+          short_description: string
+          slug?: string | null
+          status?: string
+          subscription_price?: number | null
+        }
+        Update: {
+          average_rating?: number
+          category?: string | null
+          created_at?: string
+          demo_inputs?: Json | null
+          demo_output?: string | null
+          endpoint_url?: string | null
+          full_description?: string | null
+          id?: string
+          input_schema?: Json | null
+          name?: string
+          one_time_price?: number | null
+          output_type?: string | null
+          pricing_model?: string | null
+          processing_time?: string | null
+          review_count?: number
+          run_count?: number
+          seller_id?: string
+          short_description?: string
+          slug?: string | null
+          status?: string
+          subscription_price?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "agents_seller_id_fkey"
+            columns: ["seller_id"]
+            isOneToOne: false
+            referencedRelation: "seller_profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      disputes: {
+        Row: {
+          buyer_id: string
+          created_at: string
+          id: string
+          reason: string
+          run_id: string
+          status: string
+        }
+        Insert: {
+          buyer_id: string
+          created_at?: string
+          id?: string
+          reason: string
+          run_id: string
+          status?: string
+        }
+        Update: {
+          buyer_id?: string
+          created_at?: string
+          id?: string
+          reason?: string
+          run_id?: string
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "disputes_buyer_id_fkey"
+            columns: ["buyer_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "disputes_run_id_fkey"
+            columns: ["run_id"]
+            isOneToOne: false
+            referencedRelation: "runs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      profiles: {
+        Row: {
+          avatar_url: string | null
+          created_at: string
+          email: string
+          full_name: string | null
+          id: string
+          is_seller_onboarded: boolean
+          role: string
+        }
+        Insert: {
+          avatar_url?: string | null
+          created_at?: string
+          email: string
+          full_name?: string | null
+          id: string
+          is_seller_onboarded?: boolean
+          role?: string
+        }
+        Update: {
+          avatar_url?: string | null
+          created_at?: string
+          email?: string
+          full_name?: string | null
+          id?: string
+          is_seller_onboarded?: boolean
+          role?: string
+        }
+        Relationships: []
+      }
+      reviews: {
+        Row: {
+          agent_id: string
+          buyer_id: string
+          created_at: string
+          id: string
+          rating: number
+          review_text: string | null
+          run_id: string
+        }
+        Insert: {
+          agent_id: string
+          buyer_id: string
+          created_at?: string
+          id?: string
+          rating: number
+          review_text?: string | null
+          run_id: string
+        }
+        Update: {
+          agent_id?: string
+          buyer_id?: string
+          created_at?: string
+          id?: string
+          rating?: number
+          review_text?: string | null
+          run_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "reviews_agent_id_fkey"
+            columns: ["agent_id"]
+            isOneToOne: false
+            referencedRelation: "agents"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "reviews_buyer_id_fkey"
+            columns: ["buyer_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "reviews_run_id_fkey"
+            columns: ["run_id"]
+            isOneToOne: true
+            referencedRelation: "runs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      runs: {
+        Row: {
+          agent_id: string
+          buyer_id: string
+          created_at: string
+          error_code: string | null
+          error_message: string | null
+          files: Json | null
+          id: string
+          inputs: Json | null
+          output: string | null
+          output_type: string | null
+          processing_time_ms: number | null
+          status: string
+          tasqr_request_id: string
+          transaction_id: string | null
+        }
+        Insert: {
+          agent_id: string
+          buyer_id: string
+          created_at?: string
+          error_code?: string | null
+          error_message?: string | null
+          files?: Json | null
+          id?: string
+          inputs?: Json | null
+          output?: string | null
+          output_type?: string | null
+          processing_time_ms?: number | null
+          status?: string
+          tasqr_request_id: string
+          transaction_id?: string | null
+        }
+        Update: {
+          agent_id?: string
+          buyer_id?: string
+          created_at?: string
+          error_code?: string | null
+          error_message?: string | null
+          files?: Json | null
+          id?: string
+          inputs?: Json | null
+          output?: string | null
+          output_type?: string | null
+          processing_time_ms?: number | null
+          status?: string
+          tasqr_request_id?: string
+          transaction_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "runs_agent_id_fkey"
+            columns: ["agent_id"]
+            isOneToOne: false
+            referencedRelation: "agents"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "runs_buyer_id_fkey"
+            columns: ["buyer_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "runs_transaction_id_fkey"
+            columns: ["transaction_id"]
+            isOneToOne: false
+            referencedRelation: "transactions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      seller_profiles: {
+        Row: {
+          airtm_email: string | null
+          api_key_hash: string | null
+          api_key_last_used: string | null
+          api_key_prefix: string | null
+          bio: string | null
+          created_at: string
+          handle: string | null
+          id: string
+          reliability_score: number
+          total_earnings: number
+          user_id: string
+          website: string | null
+          withdrawable_balance: number
+        }
+        Insert: {
+          airtm_email?: string | null
+          api_key_hash?: string | null
+          api_key_last_used?: string | null
+          api_key_prefix?: string | null
+          bio?: string | null
+          created_at?: string
+          handle?: string | null
+          id?: string
+          reliability_score?: number
+          total_earnings?: number
+          user_id: string
+          website?: string | null
+          withdrawable_balance?: number
+        }
+        Update: {
+          airtm_email?: string | null
+          api_key_hash?: string | null
+          api_key_last_used?: string | null
+          api_key_prefix?: string | null
+          bio?: string | null
+          created_at?: string
+          handle?: string | null
+          id?: string
+          reliability_score?: number
+          total_earnings?: number
+          user_id?: string
+          website?: string | null
+          withdrawable_balance?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "seller_profiles_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: true
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      transactions: {
+        Row: {
+          agent_id: string
+          amount: number
+          buyer_id: string
+          created_at: string
+          hold_until: string | null
+          id: string
+          paystack_reference: string | null
+          platform_fee: number | null
+          seller_earnings: number | null
+          seller_id: string
+          status: string
+          transaction_type: string | null
+        }
+        Insert: {
+          agent_id: string
+          amount: number
+          buyer_id: string
+          created_at?: string
+          hold_until?: string | null
+          id?: string
+          paystack_reference?: string | null
+          platform_fee?: number | null
+          seller_earnings?: number | null
+          seller_id: string
+          status?: string
+          transaction_type?: string | null
+        }
+        Update: {
+          agent_id?: string
+          amount?: number
+          buyer_id?: string
+          created_at?: string
+          hold_until?: string | null
+          id?: string
+          paystack_reference?: string | null
+          platform_fee?: number | null
+          seller_earnings?: number | null
+          seller_id?: string
+          status?: string
+          transaction_type?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "transactions_agent_id_fkey"
+            columns: ["agent_id"]
+            isOneToOne: false
+            referencedRelation: "agents"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "transactions_buyer_id_fkey"
+            columns: ["buyer_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "transactions_seller_id_fkey"
+            columns: ["seller_id"]
+            isOneToOne: false
+            referencedRelation: "seller_profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      is_seller_owner: { Args: { _seller_id: string }; Returns: boolean }
     }
     Enums: {
       [_ in never]: never
