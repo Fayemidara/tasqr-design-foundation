@@ -155,14 +155,14 @@ export function Step3InputBuilder({
 
       <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_400px]">
         <div>
-          <div className="mb-4">
-            <Button
-              type="button"
-              onClick={() => setFields((fs) => [...fs, makeField(nextId())])}
-            >
-              <Plus className="h-4 w-4 mr-1" /> Add Field
-            </Button>
-          </div>
+          <button
+            type="button"
+            onClick={() => setFields((fs) => [...fs, makeField(nextId())])}
+            className="mb-4 w-full inline-flex items-center justify-center gap-2 h-11 rounded-[4px] border border-dashed border-border bg-transparent text-foreground font-mono text-sm hover:bg-surface-raised hover:border-primary transition-colors"
+          >
+            <Plus className="h-4 w-4" />
+            Add Field
+          </button>
 
           <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={onDragEnd}>
             <SortableContext items={fields.map((f) => f.id)} strategy={verticalListSortingStrategy}>
