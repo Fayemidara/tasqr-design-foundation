@@ -127,8 +127,13 @@ function SellerOnboarding() {
     setStep(2);
   };
 
+  const isStep3 = step === 3;
   return (
-    <OnboardingLayout step={step} totalSteps={TOTAL_STEPS}>
+    <OnboardingLayout
+      step={step}
+      totalSteps={TOTAL_STEPS}
+      maxWidth={isStep3 ? 1100 : 600}
+    >
       {step === 1 && (
         <>
           <h2 className="font-mono text-[24px] mb-2">Set up your seller profile</h2>
@@ -192,7 +197,14 @@ function SellerOnboarding() {
 
       {step === 2 && <Step2 onContinue={() => setStep(3)} />}
 
-      {step >= 3 && (
+      {step === 3 && (
+        <Step3InputBuilder
+          onContinue={() => setStep(4)}
+          onBack={() => setStep(2)}
+        />
+      )}
+
+      {step >= 4 && (
         <>
           <h2 className="font-mono text-[24px] mb-2">Step {step}</h2>
           <p className="font-sans text-sm text-muted-foreground">Coming soon.</p>
