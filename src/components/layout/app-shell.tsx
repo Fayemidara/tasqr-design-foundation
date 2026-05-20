@@ -92,7 +92,7 @@ export function AppShell({ children }: { children: ReactNode }) {
       <div className="flex flex-1 min-h-0">
         <aside className="w-[240px] bg-sidebar border-r border-border py-4">
           <nav className="flex flex-col gap-1 px-3">
-            {navItems.map((item) => {
+            {(location.pathname.startsWith("/seller") ? sellerNav : buyerNav).map((item) => {
               const active = location.pathname.startsWith(item.to);
               return (
                 <Link
