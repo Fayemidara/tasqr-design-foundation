@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { createFileRoute, useSearch, Link } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import ReactMarkdown from "react-markdown";
 import { Star, Download } from "lucide-react";
 import { AppShell } from "@/components/layout/app-shell";
