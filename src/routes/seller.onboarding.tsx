@@ -220,7 +220,18 @@ function SellerOnboarding() {
         />
       )}
 
-      {step >= 5 && (
+      {step === 5 && (
+        <Step5Listing
+          initial={step5Data}
+          onContinue={(data) => {
+            setStep5Data(data);
+            setStep(6);
+          }}
+          onBack={() => setStep(4)}
+        />
+      )}
+
+      {step >= 6 && (
         <>
           <h2 className="font-mono text-[24px] mb-2">Step {step}</h2>
           <p className="font-sans text-sm text-muted-foreground">Coming soon.</p>
