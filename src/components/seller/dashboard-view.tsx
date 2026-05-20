@@ -169,7 +169,12 @@ export function SellerDashboardView() {
 
       {/* Agents table */}
       <section className="space-y-3">
-        <div className={LABEL}>My Agents</div>
+        <div className="flex items-center justify-between">
+          <div className={LABEL}>My Agents</div>
+          <Link to="/seller/agents/new">
+            <Button variant="primary">List New Agent</Button>
+          </Link>
+        </div>
         <Card>
           {loading ? (
             <div className="p-6 space-y-3">
