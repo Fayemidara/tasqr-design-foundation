@@ -1,25 +1,8 @@
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { useEffect } from "react";
-import { useAuth } from "@/hooks/use-auth";
+import { createFileRoute, redirect } from "@tanstack/react-router";
 
 export const Route = createFileRoute("/")({
-  head: () => ({
-    meta: [
-      { title: "Tasqr" },
-      { name: "description", content: "Tasqr" },
-    ],
-  }),
-  component: Index,
+  beforeLoad: () => {
+    throw redirect({ to: "/signin" });
+  },
+  component: () => null,
 });
-
-function Index() {
-  const { session, loading } = useAuth();
-  const navigate = useNavigate();
-
-  useEffect(() => {
-    if (loading) return;
-    navigate({ to: session ? "/browse" : "/signin", replace: true });
-  }, [loading, session, navigate]);
-
-  return null;
-}
