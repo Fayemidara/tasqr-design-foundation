@@ -10,6 +10,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Step3InputBuilder } from "@/components/seller/step3-input-builder";
 import { Step4ConnectAgent, type Step4Data } from "@/components/seller/step4-connect-agent";
 import { Step5Listing, type Step5Data } from "@/components/seller/step5-listing";
+import { Step6Review } from "@/components/seller/step6-review";
 
 const TOTAL_STEPS = 6;
 const HANDLE_RE = /^[a-zA-Z0-9_]+$/;
@@ -50,6 +51,7 @@ function SellerOnboarding() {
   const [step, setStep] = useState(1);
   const [step4Data, setStep4Data] = useState<Step4Data | undefined>(undefined);
   const [step5Data, setStep5Data] = useState<Step5Data | undefined>(undefined);
+  const [apiKeyPrefix, setApiKeyPrefix] = useState<string | null>(null);
 
   // Step 1
   const [handle, setHandle] = useState("");
@@ -200,7 +202,14 @@ function SellerOnboarding() {
         </>
       )}
 
-      {step === 2 && <Step2 onContinue={() => setStep(3)} />}
+      {step === 2 && (
+        <Step2
+          onContinue={(prefix) => {
+            setApiKeyPrefix(prefix);
+            setStep(3);
+          }}
+        />
+      )}
 
       {step === 3 && (
         <Step3InputBuilder
@@ -231,17 +240,21 @@ function SellerOnboarding() {
         />
       )}
 
-      {step >= 6 && (
-        <>
-          <h2 className="font-mono text-[24px] mb-2">Step {step}</h2>
-          <p className="font-sans text-sm text-muted-foreground">Coming soon.</p>
-        </>
+      {step === 6 && step4Data && step5Data && (
+        <Step6Review
+          step1={{ handle, displayName, bio, website }}
+          apiKeyPrefix={apiKeyPrefix}
+          step4={step4Data}
+          step5={step5Data}
+          onEdit={(n) => setStep(n)}
+          onBack={() => setStep(5)}
+        />
       )}
     </OnboardingLayout>
   );
 }
 
-function Step2({ onContinue }: { onContinue: () => void }) {
+function Step2({ onContinue }: { onContinue: (prefix: string) => void }) {
   const { user } = useAuth();
   const [apiKey, setApiKey] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
@@ -330,7 +343,11 @@ function Step2({ onContinue }: { onContinue: () => void }) {
       {error && <p className="mt-3 font-mono text-xs text-destructive">{error}</p>}
 
       <div className="mt-8">
-        <Button onClick={onContinue} disabled={!apiKey} className="w-full">
+        <Button
+          onClick={() => apiKey && onContinue(apiKey.slice(0, 12))}
+          disabled={!apiKey}
+          className="w-full"
+        >
           Continue
         </Button>
       </div>
