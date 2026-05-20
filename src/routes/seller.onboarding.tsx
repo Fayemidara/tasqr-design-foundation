@@ -8,6 +8,7 @@ import { Input, Textarea, Label } from "@/components/ui/tasqr-form";
 import { useAuth } from "@/hooks/use-auth";
 import { supabase } from "@/integrations/supabase/client";
 import { Step3InputBuilder } from "@/components/seller/step3-input-builder";
+import { Step4ConnectAgent, type Step4Data } from "@/components/seller/step4-connect-agent";
 
 const TOTAL_STEPS = 6;
 const HANDLE_RE = /^[a-zA-Z0-9_]+$/;
