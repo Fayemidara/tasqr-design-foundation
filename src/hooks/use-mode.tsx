@@ -15,15 +15,17 @@ const Ctx = createContext<ModeCtx>({ mode: "buyer", role: null, loading: true, s
 
 const STORAGE_KEY = "tasqr_mode";
 
+function readStored(): Mode | null {
+  if (typeof window === "undefined") return null;
+  const v = window.localStorage.getItem(STORAGE_KEY);
+  return v === "seller" || v === "buyer" ? v : null;
+}
+
 export function ModeProvider({ children }: { children: ReactNode }) {
   const { user } = useAuth();
   const [role, setRole] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
-  const [mode, setModeState] = useState<Mode>(() => {
-    if (typeof window === "undefined") return "buyer";
-    const v = window.localStorage.getItem(STORAGE_KEY);
-    return v === "seller" ? "seller" : "buyer";
-  });
+  const [mode, setModeState] = useState<Mode>(() => readStored() ?? "buyer");
 
   useEffect(() => {
     if (!user) {
@@ -38,11 +40,23 @@ export function ModeProvider({ children }: { children: ReactNode }) {
       .eq("id", user.id)
       .maybeSingle()
       .then(({ data }) => {
-        setRole(data?.role ?? null);
-        // If user isn't 'both', force mode based on role
-        if (data?.role !== "both" && mode === "seller") {
-          setModeState("buyer");
-          window.localStorage.setItem(STORAGE_KEY, "buyer");
+        const r = data?.role ?? null;
+        setRole(r);
+        const stored = readStored();
+        if (r === "both") {
+          // If no explicit choice yet, infer from current path
+          if (!stored && typeof window !== "undefined") {
+            const inferred: Mode = window.location.pathname.startsWith("/seller")
+              ? "seller"
+              : "buyer";
+            setModeState(inferred);
+            window.localStorage.setItem(STORAGE_KEY, inferred);
+          }
+        } else if (r === "seller") {
+          setModeState("seller");
+        } else {
+          // pure buyer or null
+          if (mode === "seller") setModeState("buyer");
         }
         setLoading(false);
       });
