@@ -3,6 +3,7 @@ import { Link, useLocation, useNavigate } from "@tanstack/react-router";
 import { ChevronDown } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/hooks/use-auth";
+import { supabase } from "@/integrations/supabase/client";
 
 const navItems = [
   { label: "Browse", to: "/browse" },
@@ -54,7 +55,18 @@ export function AppShell({ children }: { children: ReactNode }) {
                   Profile
                 </Link>
                 <button
-                  onClick={() => setOpen(false)}
+                  onClick={async () => {
+                    setOpen(false);
+                    if (!user) return;
+                    const { data } = await supabase
+                      .from("profiles")
+                      .select("is_seller_onboarded")
+                      .eq("id", user.id)
+                      .maybeSingle();
+                    navigate({
+                      to: data?.is_seller_onboarded ? "/seller/dashboard" : "/seller/onboarding",
+                    });
+                  }}
                   className="block w-full text-left px-3 py-2 font-mono text-sm text-foreground hover:bg-white/5"
                 >
                   Become a Seller
