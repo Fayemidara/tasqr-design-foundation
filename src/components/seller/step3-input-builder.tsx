@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { memo, useMemo, useRef, useState } from "react";
 import { GripVertical, Trash2, X, Plus } from "lucide-react";
 import {
   DndContext,
@@ -51,9 +51,9 @@ function toFieldName(label: string) {
     .replace(/^_|_$/g, "");
 }
 
-function newField(): BuilderField {
+function makeField(id: string): BuilderField {
   return {
-    id: crypto.randomUUID(),
+    id,
     label: "",
     type: "text",
     placeholder: "",
@@ -95,7 +95,9 @@ export function Step3InputBuilder({
   onBack: () => void;
 }) {
   const { user } = useAuth();
-  const [fields, setFields] = useState<BuilderField[]>([newField()]);
+  const nextIdRef = useRef(1);
+  const nextId = () => `f_${nextIdRef.current++}`;
+  const [fields, setFields] = useState<BuilderField[]>(() => [makeField(nextId())]);
   const [saving, setSaving] = useState(false);
   const [touched, setTouched] = useState(false);
 
@@ -156,7 +158,7 @@ export function Step3InputBuilder({
           <div className="mb-4">
             <Button
               type="button"
-              onClick={() => setFields((fs) => [...fs, newField()])}
+              onClick={() => setFields((fs) => [...fs, makeField(nextId())])}
             >
               <Plus className="h-4 w-4 mr-1" /> Add Field
             </Button>
