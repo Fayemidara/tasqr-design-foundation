@@ -95,7 +95,9 @@ export function Step3InputBuilder({
   onBack: () => void;
 }) {
   const { user } = useAuth();
-  const [fields, setFields] = useState<BuilderField[]>([newField()]);
+  const nextIdRef = useRef(1);
+  const nextId = () => `f_${nextIdRef.current++}`;
+  const [fields, setFields] = useState<BuilderField[]>(() => [makeField(nextId())]);
   const [saving, setSaving] = useState(false);
   const [touched, setTouched] = useState(false);
 
