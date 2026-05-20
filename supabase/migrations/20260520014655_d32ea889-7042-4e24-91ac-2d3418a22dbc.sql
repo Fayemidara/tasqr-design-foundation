@@ -1,0 +1,1 @@
+ALTER TABLE public.seller_profiles ADD COLUMN IF NOT EXISTS draft_input_schema jsonb;
