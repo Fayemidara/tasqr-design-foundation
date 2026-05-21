@@ -32,7 +32,7 @@ type Agent = {
   review_count: number;
   run_count: number;
   created_at: string;
-  seller: { handle: string | null } | null;
+  seller: { handle: string | null; reliability_score: number | null } | null;
 };
 
 const LABEL = "font-mono text-[11px] uppercase tracking-[0.05em] text-muted-foreground";
@@ -65,7 +65,7 @@ function BrowseInner() {
       const { data } = await supabase
         .from("agents")
         .select(
-          "id,slug,name,short_description,category,pricing_model,one_time_price,subscription_price,average_rating,review_count,run_count,created_at,seller:seller_profiles!agents_seller_id_fkey(handle)",
+          "id,slug,name,short_description,category,pricing_model,one_time_price,subscription_price,average_rating,review_count,run_count,created_at,seller:seller_profiles!agents_seller_id_fkey(handle,reliability_score)",
         )
         .eq("status", "live");
       if (cancelled) return;
@@ -79,10 +79,16 @@ function BrowseInner() {
         const sellerIds = Array.from(new Set((raw ?? []).map((r: any) => r.seller_id)));
         const { data: sellers } = await supabase
           .from("seller_profiles")
-          .select("id,handle")
+          .select("id,handle,reliability_score")
           .in("id", sellerIds.length ? sellerIds : ["00000000-0000-0000-0000-000000000000"]);
-        const map = new Map((sellers ?? []).map((s: any) => [s.id, s.handle]));
-        list = (raw ?? []).map((r: any) => ({ ...r, seller: { handle: map.get(r.seller_id) ?? null } }));
+        const map = new Map((sellers ?? []).map((s: any) => [s.id, s]));
+        list = (raw ?? []).map((r: any) => ({
+          ...r,
+          seller: {
+            handle: map.get(r.seller_id)?.handle ?? null,
+            reliability_score: map.get(r.seller_id)?.reliability_score ?? null,
+          },
+        }));
       }
       setAgents(list);
       setLoading(false);
@@ -219,11 +225,26 @@ function BrowseInner() {
                     <h3 className="font-mono text-base text-foreground leading-tight">
                       {a.name}
                     </h3>
-                    {a.category && (
-                      <span className="font-mono text-[10px] uppercase tracking-[0.05em] px-2 py-0.5 rounded-[4px] bg-accent text-accent-foreground shrink-0">
-                        {a.category}
-                      </span>
-                    )}
+                    <div className="flex items-center gap-1 shrink-0">
+                      {a.seller?.reliability_score != null && Number(a.seller.reliability_score) >= 90 && (
+                        <span className="font-mono text-[10px] uppercase tracking-[0.05em] px-2 py-0.5 rounded-[4px] bg-warning text-warning-foreground">
+                          High Reliability
+                        </span>
+                      )}
+                      {a.seller?.reliability_score != null && Number(a.seller.reliability_score) < 70 && (
+                        <span
+                          className="font-mono text-[10px] uppercase tracking-[0.05em] px-2 py-0.5 rounded-[4px] text-white"
+                          style={{ backgroundColor: "#F4511E" }}
+                        >
+                          Low Reliability
+                        </span>
+                      )}
+                      {a.category && (
+                        <span className="font-mono text-[10px] uppercase tracking-[0.05em] px-2 py-0.5 rounded-[4px] bg-accent text-accent-foreground">
+                          {a.category}
+                        </span>
+                      )}
+                    </div>
                   </div>
                   <p className="font-sans text-sm text-muted-foreground line-clamp-1">
                     {a.short_description}

@@ -88,7 +88,10 @@ function ReliabilityBadge({ score }: { score: number }) {
     );
   if (score < 70)
     return (
-      <span className="font-mono text-[10px] uppercase tracking-[0.05em] px-2 py-0.5 rounded-[4px] bg-destructive text-destructive-foreground">
+      <span
+        className="font-mono text-[10px] uppercase tracking-[0.05em] px-2 py-0.5 rounded-[4px] text-white"
+        style={{ backgroundColor: "#F4511E" }}
+      >
         Low Reliability
       </span>
     );

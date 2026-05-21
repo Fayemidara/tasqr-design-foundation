@@ -28,6 +28,7 @@ type AgentRow = {
   processing_time: string | null;
   input_schema: InputField[] | null;
   endpoint_url: string | null;
+  seller_id: string;
 };
 
 type FileEntry = { path: string; name: string };
@@ -145,7 +146,7 @@ function RunNewInner() {
       const query = supabase
         .from("agents")
         .select(
-          "id,slug,name,short_description,processing_time,input_schema,endpoint_url",
+          "id,slug,name,short_description,processing_time,input_schema,endpoint_url,seller_id",
         );
       const { data } = await (slugOrId.length === 36
         ? query.eq("id", slugOrId).maybeSingle()
@@ -395,6 +396,13 @@ function RunNewInner() {
     ) => {
       await supabase.from("runs").update(patch).eq("id", inserted.id);
       if (refund) await refundIfNeeded();
+      // Recalculate seller reliability score after every final run status.
+      const finalStatuses = ["success", "timeout", "unreachable", "error", "malformed"];
+      if (patch.status && finalStatuses.includes(patch.status)) {
+        await supabase.rpc("calculate_reliability_score", {
+          _seller_id: agent.seller_id,
+        });
+      }
       setExec(execState);
       await cleanupUploads();
     };

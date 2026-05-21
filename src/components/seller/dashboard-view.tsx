@@ -88,6 +88,12 @@ export function SellerDashboardView() {
   const [profile, setProfile] = useState<SellerProfile | null>(null);
   const [agents, setAgents] = useState<Agent[]>([]);
   const [refundCount, setRefundCount] = useState<number>(0);
+  const [metrics, setMetrics] = useState({
+    timeoutRate: 0,
+    errorRate: 0,
+    malformedCount: 0,
+    disputeRate: 0,
+  });
 
   useEffect(() => {
     if (!user) return;
@@ -121,6 +127,35 @@ export function SellerDashboardView() {
         .eq("status", "refunded")
         .gte("refunded_at", since);
       if (!cancelled) setRefundCount(count ?? 0);
+
+      // Reliability sub-metrics: pull last 30 days of runs for seller's agents.
+      const agentIds = (ags ?? []).map((a: any) => a.id);
+      if (agentIds.length > 0) {
+        const { data: runs } = await supabase
+          .from("runs")
+          .select("id,status")
+          .in("agent_id", agentIds)
+          .gte("created_at", since);
+        const total = runs?.length ?? 0;
+        if (total > 0 && runs) {
+          const timeouts = runs.filter((r) => r.status === "timeout").length;
+          const errs = runs.filter((r) => r.status === "error").length;
+          const malformed = runs.filter((r) => r.status === "malformed").length;
+          const { data: disputeRows } = await supabase
+            .from("disputes")
+            .select("run_id")
+            .in("run_id", runs.map((r) => r.id));
+          const disputes = disputeRows?.length ?? 0;
+          if (!cancelled) {
+            setMetrics({
+              timeoutRate: (timeouts / total) * 100,
+              errorRate: (errs / total) * 100,
+              malformedCount: malformed,
+              disputeRate: (disputes / total) * 100,
+            });
+          }
+        }
+      }
 
       setLoading(false);
     })();
@@ -163,6 +198,18 @@ export function SellerDashboardView() {
         <StatCard label="Total Runs" value={String(totalRuns)} loading={loading} />
         <StatCard label="Active Agents" value={String(liveCount)} loading={loading} />
       </div>
+
+      {!loading && profile && score < 50 && (
+        <Card className="p-5" >
+          <p
+            className="font-sans text-sm"
+            style={{ color: "#F4511E" }}
+          >
+            Your agents have been paused due to low reliability. Improve your agent and contact support to restore.
+          </p>
+        </Card>
+      )}
+
 
       {/* Payout banner */}
       <Card className="p-5">
@@ -293,10 +340,10 @@ export function SellerDashboardView() {
           </div>
           <div className="grid grid-cols-2 gap-4 pt-2">
             {[
-              { label: "Timeout Rate", value: "0%" },
-              { label: "Error Rate", value: "0%" },
-              { label: "Spec Violations", value: "N/A" },
-              { label: "Dispute Rate", value: "0%" },
+              { label: "Timeout Rate", value: `${metrics.timeoutRate.toFixed(1)}%` },
+              { label: "Error Rate", value: `${metrics.errorRate.toFixed(1)}%` },
+              { label: "Spec Violations", value: String(metrics.malformedCount) },
+              { label: "Dispute Rate", value: `${metrics.disputeRate.toFixed(1)}%` },
             ].map((m) => (
               <div key={m.label} className="space-y-1">
                 <div className={LABEL}>{m.label}</div>

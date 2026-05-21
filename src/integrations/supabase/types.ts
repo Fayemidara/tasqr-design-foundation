@@ -493,6 +493,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      calculate_reliability_score: {
+        Args: { _seller_id: string }
+        Returns: number
+      }
       get_agent_api_key_prefix: { Args: { _agent_id: string }; Returns: string }
       get_my_seller_profile: {
         Args: never
