@@ -12,7 +12,7 @@ import { cn } from "@/lib/utils";
 import { cacheRunOutput, getAgentApiKey } from "@/lib/runs.functions";
 
 type InputField = {
-  name: string;
+  field_name: string;
   label?: string;
   type?: string;
   placeholder?: string;
@@ -167,9 +167,9 @@ function RunNewInner() {
       if (!f.required) continue;
       const t = (f.type ?? "text").toLowerCase();
       if (t === "image_upload" || t === "document_upload") {
-        if (!files[f.name]) return false;
+        if (!files[f.field_name]) return false;
       } else {
-        if (!values[f.name] || !values[f.name].trim()) return false;
+        if (!values[f.field_name] || !values[f.field_name].trim()) return false;
       }
     }
     return true;
@@ -185,22 +185,22 @@ function RunNewInner() {
     const kind = (field.type ?? "").toLowerCase() as "image_upload" | "document_upload";
 
     // Clear prior state for this field
-    setUploadErrors((s) => ({ ...s, [field.name]: "" }));
+    setUploadErrors((s) => ({ ...s, [field.field_name]: "" }));
 
     const validationError = validateFile(file, kind);
     if (validationError) {
-      setUploadErrors((s) => ({ ...s, [field.name]: validationError }));
+      setUploadErrors((s) => ({ ...s, [field.field_name]: validationError }));
       setFiles((s) => {
         const next = { ...s };
-        delete next[field.name];
+        delete next[field.field_name];
         return next;
       });
       return;
     }
 
-    setUploading((s) => ({ ...s, [field.name]: true }));
+    setUploading((s) => ({ ...s, [field.field_name]: true }));
     try {
-      const path = `${user.id}/${requestIdRef.current}/${field.name}`;
+      const path = `${user.id}/${requestIdRef.current}/${field.field_name}`;
       const { error } = await supabase.storage
         .from("run-uploads")
         .upload(path, file, {
@@ -208,16 +208,16 @@ function RunNewInner() {
           upsert: true,
         });
       if (error) throw error;
-      setFiles((s) => ({ ...s, [field.name]: { path, name: file.name } }));
-      if (errors[field.name]) setErrors((s) => ({ ...s, [field.name]: false }));
+      setFiles((s) => ({ ...s, [field.field_name]: { path, name: file.name } }));
+      if (errors[field.field_name]) setErrors((s) => ({ ...s, [field.field_name]: false }));
     } catch (e) {
       console.error("upload failed", e);
       setUploadErrors((s) => ({
         ...s,
-        [field.name]: "File upload failed. Please try again.",
+        [field.field_name]: "File upload failed. Please try again.",
       }));
     } finally {
-      setUploading((s) => ({ ...s, [field.name]: false }));
+      setUploading((s) => ({ ...s, [field.field_name]: false }));
     }
   };
 
@@ -239,9 +239,9 @@ function RunNewInner() {
       const t = (f.type ?? "text").toLowerCase();
       const missing =
         t === "image_upload" || t === "document_upload"
-          ? !files[f.name]
-          : !values[f.name] || !values[f.name].trim();
-      if (missing) nextErr[f.name] = true;
+          ? !files[f.field_name]
+          : !values[f.field_name] || !values[f.field_name].trim();
+      if (missing) nextErr[f.field_name] = true;
     }
     setErrors(nextErr);
     if (Object.keys(nextErr).length) return;
@@ -254,9 +254,9 @@ function RunNewInner() {
     for (const f of inputs) {
       const t = (f.type ?? "text").toLowerCase();
       if (t === "image_upload" || t === "document_upload") {
-        const entry = files[f.name];
+        const entry = files[f.field_name];
         if (!entry) continue;
-        filesPathPayload[f.name] = entry.path;
+        filesPathPayload[f.field_name] = entry.path;
         const { data: signed, error: signErr } = await supabase.storage
           .from("run-uploads")
           .createSignedUrl(entry.path, 60 * 30);
@@ -268,9 +268,9 @@ function RunNewInner() {
           });
           return;
         }
-        filesSignedPayload[f.name] = signed.signedUrl;
-      } else if (values[f.name] != null) {
-        inputsPayload[f.name] = values[f.name];
+        filesSignedPayload[f.field_name] = signed.signedUrl;
+      } else if (values[f.field_name] != null) {
+        inputsPayload[f.field_name] = values[f.field_name];
       }
     }
 
@@ -513,22 +513,22 @@ function RunNewInner() {
             )}
             {inputs.map((f) => {
               const t = (f.type ?? "text").toLowerCase();
-              const err = errors[f.name];
-              const upErr = uploadErrors[f.name];
-              const isUp = uploading[f.name];
+              const err = errors[f.field_name];
+              const upErr = uploadErrors[f.field_name];
+              const isUp = uploading[f.field_name];
               const label = (
                 <label className="block font-mono text-xs text-foreground mb-1.5">
-                  {f.label ?? f.name}
+                  {f.label ?? f.field_name}
                   {f.required && <span className="text-destructive ml-1">*</span>}
                 </label>
               );
               return (
-                <div key={f.name}>
+                <div key={f.field_name}>
                   {label}
                   {t === "textarea" && (
                     <textarea
-                      value={values[f.name] ?? ""}
-                      onChange={(e) => setVal(f.name, e.target.value)}
+                      value={values[f.field_name] ?? ""}
+                      onChange={(e) => setVal(f.field_name, e.target.value)}
                       placeholder={f.placeholder}
                       rows={5}
                       className={cn(
@@ -539,8 +539,8 @@ function RunNewInner() {
                   )}
                   {t === "dropdown" && (
                     <select
-                      value={values[f.name] ?? ""}
-                      onChange={(e) => setVal(f.name, e.target.value)}
+                      value={values[f.field_name] ?? ""}
+                      onChange={(e) => setVal(f.field_name, e.target.value)}
                       className={cn(
                         "w-full bg-surface-raised border rounded-[4px] px-3 py-2 font-sans text-sm text-foreground focus:outline-none focus:border-primary",
                         err ? "border-destructive" : "border-border",
@@ -588,9 +588,9 @@ function RunNewInner() {
                           Uploading file...
                         </p>
                       )}
-                      {!isUp && files[f.name] && (
+                      {!isUp && files[f.field_name] && (
                         <p className="font-mono text-xs text-muted-foreground truncate">
-                          Uploaded: {files[f.name].name}
+                          Uploaded: {files[f.field_name].name}
                         </p>
                       )}
                       {upErr && (
@@ -607,8 +607,8 @@ function RunNewInner() {
                       t !== "document_upload")) && (
                     <input
                       type="text"
-                      value={values[f.name] ?? ""}
-                      onChange={(e) => setVal(f.name, e.target.value)}
+                      value={values[f.field_name] ?? ""}
+                      onChange={(e) => setVal(f.field_name, e.target.value)}
                       placeholder={f.placeholder}
                       className={cn(
                         "w-full bg-surface-raised border rounded-[4px] px-3 py-2 font-sans text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-primary",
