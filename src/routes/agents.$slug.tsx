@@ -285,21 +285,25 @@ function AgentDetailInner({ slug }: { slug: string }) {
           agent_id: agent.id,
           buyer_id: user.id,
         },
-        onSuccess: async (resp) => {
-          await supabase
+        callback: function(response: { reference: string }) {
+          supabase
             .from("transactions")
-            .update({ status: "held", paystack_reference: resp.reference })
-            .eq("id", transactionId);
-          setPaying(false);
-          goToRun(transactionId);
+            .update({ status: "held", paystack_reference: response.reference })
+            .eq("id", transactionId)
+            .then(() => {
+              setPaying(false);
+              goToRun(transactionId);
+            });
         },
-        onClose: async () => {
-          await supabase
+        onClose: function() {
+          supabase
             .from("transactions")
             .update({ status: "cancelled" })
-            .eq("id", transactionId);
-          setPaying(false);
-          setPayMessage("Payment cancelled.");
+            .eq("id", transactionId)
+            .then(() => {
+              setPaying(false);
+              setPayMessage("Payment cancelled.");
+            });
         },
       });
       handler.openIframe();
