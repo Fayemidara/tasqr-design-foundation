@@ -299,9 +299,17 @@ function RunNewInner() {
     }
     setRunId(inserted.id);
 
+    let apiKey = "";
+    try {
+      const r = await getAgentApiKey({ data: { agentId: agent.id } });
+      apiKey = r.api_key_prefix ?? "";
+    } catch {
+      // fall through with empty key; seller endpoint will reject
+    }
+
     const payload = {
       tasqr_request_id,
-      api_key: agent.seller?.api_key_prefix ?? "",
+      api_key: apiKey,
       inputs: inputsPayload,
       files: filesSignedPayload,
       buyer_id: user.id,
