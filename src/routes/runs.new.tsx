@@ -440,7 +440,7 @@ function RunNewInner() {
       body = await resp.json();
     } catch {
       const message =
-        "The agent returned an invalid response. Your payment will be refunded automatically.";
+        "The agent returned an invalid response. You will receive a full refund.";
       await finalize(
         {
           status: "malformed",
