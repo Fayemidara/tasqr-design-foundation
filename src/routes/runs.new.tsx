@@ -28,6 +28,7 @@ type AgentRow = {
   processing_time: string | null;
   input_schema: InputField[] | null;
   endpoint_url: string | null;
+  seller_id: string;
 };
 
 type FileEntry = { path: string; name: string };
