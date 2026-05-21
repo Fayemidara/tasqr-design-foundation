@@ -428,6 +428,7 @@ export type Database = {
           id: string
           paystack_reference: string | null
           platform_fee: number | null
+          refunded_at: string | null
           seller_earnings: number | null
           seller_id: string
           status: string
@@ -442,6 +443,7 @@ export type Database = {
           id?: string
           paystack_reference?: string | null
           platform_fee?: number | null
+          refunded_at?: string | null
           seller_earnings?: number | null
           seller_id: string
           status?: string
@@ -456,6 +458,7 @@ export type Database = {
           id?: string
           paystack_reference?: string | null
           platform_fee?: number | null
+          refunded_at?: string | null
           seller_earnings?: number | null
           seller_id?: string
           status?: string
@@ -517,6 +520,7 @@ export type Database = {
         }
       }
       is_seller_owner: { Args: { seller_profile_id: string }; Returns: boolean }
+      trigger_refund: { Args: { _transaction_id: string }; Returns: undefined }
     }
     Enums: {
       [_ in never]: never
