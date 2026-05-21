@@ -243,40 +243,74 @@ function AgentDetailInner({ slug }: { slug: string }) {
 
     const transactionId = inserted.id;
     const publicKey = import.meta.env.VITE_PAYSTACK_PUBLIC_KEY as string | undefined;
-    if (!publicKey || !window.PaystackPop) {
+    // eslint-disable-next-line no-console
+    console.log("Paystack Public Key:", publicKey);
+
+    if (!publicKey) {
       setPaying(false);
-      setPayMessage("Payment is not configured.");
+      setPayMessage("Payment system failed to load. Please refresh and try again.");
       return;
     }
 
-    const handler = window.PaystackPop.setup({
-      key: publicKey,
-      email: user.email ?? "",
-      amount: Math.round(amount * 100), // USD -> kobo placeholder
-      ref: transactionId,
-      metadata: {
-        transaction_id: transactionId,
-        agent_id: agent.id,
-        buyer_id: user.id,
-      },
-      onSuccess: async (resp) => {
-        await supabase
-          .from("transactions")
-          .update({ status: "held", paystack_reference: resp.reference })
-          .eq("id", transactionId);
-        setPaying(false);
-        goToRun(transactionId);
-      },
-      onClose: async () => {
-        await supabase
-          .from("transactions")
-          .update({ status: "cancelled" })
-          .eq("id", transactionId);
-        setPaying(false);
-        setPayMessage("Payment cancelled.");
-      },
-    });
-    handler.openIframe();
+    // Wait briefly for the Paystack inline script to load if needed.
+    if (!window.PaystackPop) {
+      await new Promise<void>((resolve) => {
+        let waited = 0;
+        const iv = setInterval(() => {
+          waited += 100;
+          if (window.PaystackPop || waited >= 3000) {
+            clearInterval(iv);
+            resolve();
+          }
+        }, 100);
+      });
+    }
+
+    if (!window.PaystackPop) {
+      // eslint-disable-next-line no-console
+      console.error("Paystack script not loaded: window.PaystackPop is undefined.");
+      setPaying(false);
+      setPayMessage("Payment system failed to load. Please refresh and try again.");
+      return;
+    }
+
+    try {
+      const handler = window.PaystackPop.setup({
+        key: publicKey,
+        email: user.email ?? "",
+        amount: Math.round(amount * 100),
+        ref: transactionId,
+        metadata: {
+          transaction_id: transactionId,
+          agent_id: agent.id,
+          buyer_id: user.id,
+        },
+        onSuccess: async (resp) => {
+          await supabase
+            .from("transactions")
+            .update({ status: "held", paystack_reference: resp.reference })
+            .eq("id", transactionId);
+          setPaying(false);
+          goToRun(transactionId);
+        },
+        onClose: async () => {
+          await supabase
+            .from("transactions")
+            .update({ status: "cancelled" })
+            .eq("id", transactionId);
+          setPaying(false);
+          setPayMessage("Payment cancelled.");
+        },
+      });
+      handler.openIframe();
+      // Reset button state once the iframe is open — don't keep it locked.
+      setPaying(false);
+    } catch (err) {
+      // eslint-disable-next-line no-console
+      console.error("Error opening Paystack iframe:", err);
+      setPaying(false);
+      setPayMessage("Could not open checkout. Please try again.");
+    }
   };
 
 
@@ -481,16 +515,17 @@ function AgentDetailInner({ slug }: { slug: string }) {
                 <>
                   <button
                     onClick={handleBuyOneTime}
-                    disabled={paying}
-                    className={cn(
-                      "block w-full text-center bg-primary text-primary-foreground font-mono text-sm py-3 rounded-[4px] hover:bg-primary/90 transition-colors",
-                      paying && "opacity-60 cursor-not-allowed",
-                    )}
+                    className="block w-full text-center bg-primary text-primary-foreground font-mono text-sm py-3 rounded-[4px] hover:bg-primary/90 transition-colors"
                   >
-                    {paying ? "Opening checkout…" : ctaPrice}
+                    {ctaPrice}
                   </button>
                   {payMessage && (
-                    <p className="font-sans text-xs text-muted-foreground">{payMessage}</p>
+                    <p
+                      className="font-sans text-xs"
+                      style={{ color: "#FF6A1F" }}
+                    >
+                      {payMessage}
+                    </p>
                   )}
                 </>
               ) : (
