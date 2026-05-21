@@ -149,13 +149,38 @@ function RunNewInner() {
         ? query.eq("id", slugOrId).maybeSingle()
         : query.eq("slug", slugOrId).maybeSingle());
       if (cancelled) return;
-      setAgent((data as unknown as AgentRow) ?? null);
+      const ag = (data as unknown as AgentRow) ?? null;
+      setAgent(ag);
+
+      // Verify transaction param if present.
+      if (transactionParam) {
+        if (!ag || !user) {
+          navigate({ to: "/browse" });
+          return;
+        }
+        const { data: tx } = await supabase
+          .from("transactions")
+          .select("id, status, buyer_id, agent_id")
+          .eq("id", transactionParam)
+          .maybeSingle();
+        if (
+          !tx ||
+          tx.status !== "held" ||
+          tx.buyer_id !== user.id ||
+          tx.agent_id !== ag.id
+        ) {
+          navigate({ to: "/browse" });
+          return;
+        }
+        setTransactionId(tx.id);
+      }
+
       setLoading(false);
     })();
     return () => {
       cancelled = true;
     };
-  }, [slugOrId]);
+  }, [slugOrId, transactionParam, user, navigate]);
 
   const inputs = useMemo<InputField[]>(
     () => (Array.isArray(agent?.input_schema) ? agent!.input_schema : []),
