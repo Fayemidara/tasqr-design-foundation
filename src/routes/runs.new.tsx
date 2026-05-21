@@ -107,18 +107,22 @@ function Ellipsis() {
 
 function RunNewInner() {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const cacheOutput = useServerFn(cacheRunOutput);
 
-  const slugOrId =
+  const params =
     typeof window !== "undefined"
-      ? new URLSearchParams(window.location.search).get("agent") ?? ""
-      : "";
+      ? new URLSearchParams(window.location.search)
+      : new URLSearchParams();
+  const slugOrId = params.get("agent") ?? "";
+  const transactionParam = params.get("transaction") ?? "";
 
   // Stable request id for this run session — used for storage path.
   const requestIdRef = useRef<string>(randomId());
 
   const [agent, setAgent] = useState<AgentRow | null>(null);
   const [loading, setLoading] = useState(true);
+  const [transactionId, setTransactionId] = useState<string | null>(null);
   const [values, setValues] = useState<Record<string, string>>({});
   const [files, setFiles] = useState<Record<string, FileEntry>>({});
   const [uploading, setUploading] = useState<Record<string, boolean>>({});
