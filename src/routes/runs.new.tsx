@@ -1,12 +1,15 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { createFileRoute, Link } from "@tanstack/react-router";
+import { useServerFn } from "@tanstack/react-start";
 import ReactMarkdown from "react-markdown";
 import { Star, Download } from "lucide-react";
 import { AppShell } from "@/components/layout/app-shell";
 import { RequireAuth } from "@/components/auth/require-auth";
 import { supabase } from "@/integrations/supabase/client";
+import type { Database } from "@/integrations/supabase/types";
 import { useAuth } from "@/hooks/use-auth";
 import { cn } from "@/lib/utils";
+import { cacheRunOutput } from "@/lib/runs.functions";
 
 type InputField = {
   name: string;
@@ -28,6 +31,8 @@ type AgentRow = {
   seller: { api_key_prefix: string | null } | null;
 };
 
+type FileEntry = { path: string; name: string };
+
 type ExecState =
   | { kind: "idle" }
   | { kind: "running" }
@@ -35,6 +40,19 @@ type ExecState =
   | { kind: "error"; message: string; refundable: boolean };
 
 const LABEL = "font-mono text-[11px] uppercase tracking-[0.05em] text-muted-foreground";
+const SAFETY_ORANGE = "#F4511E";
+
+const IMG_EXTS = ["jpg", "jpeg", "png", "gif", "webp"];
+const IMG_MIMES = ["image/jpeg", "image/png", "image/gif", "image/webp"];
+const DOC_EXTS = ["pdf", "doc", "docx", "txt"];
+const DOC_MIMES = [
+  "application/pdf",
+  "application/msword",
+  "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+  "text/plain",
+];
+const MAX_IMG = 10 * 1024 * 1024;
+const MAX_DOC = 25 * 1024 * 1024;
 
 function randomId() {
   const chars = "abcdefghijklmnopqrstuvwxyz0123456789";
@@ -62,6 +80,22 @@ function processingCopy(p: string | null | undefined) {
   };
 }
 
+function validateFile(file: File, kind: "image_upload" | "document_upload"): string | null {
+  const ext = (file.name.split(".").pop() ?? "").toLowerCase();
+  if (kind === "image_upload") {
+    const okType =
+      IMG_EXTS.includes(ext) || (file.type && IMG_MIMES.includes(file.type));
+    if (!okType) return "Invalid file type.";
+    if (file.size > MAX_IMG) return "File too large. Maximum size is 10mb.";
+  } else {
+    const okType =
+      DOC_EXTS.includes(ext) || (file.type && DOC_MIMES.includes(file.type));
+    if (!okType) return "Invalid file type.";
+    if (file.size > MAX_DOC) return "File too large. Maximum size is 25mb.";
+  }
+  return null;
+}
+
 function Ellipsis() {
   return (
     <span className="inline-flex w-6 justify-start">
@@ -74,16 +108,22 @@ function Ellipsis() {
 
 function RunNewInner() {
   const { user } = useAuth();
+  const cacheOutput = useServerFn(cacheRunOutput);
+
   const slugOrId =
     typeof window !== "undefined"
       ? new URLSearchParams(window.location.search).get("agent") ?? ""
       : "";
 
+  // Stable request id for this run session — used for storage path.
+  const requestIdRef = useRef<string>(randomId());
+
   const [agent, setAgent] = useState<AgentRow | null>(null);
   const [loading, setLoading] = useState(true);
   const [values, setValues] = useState<Record<string, string>>({});
-  const [files, setFiles] = useState<Record<string, { url: string; name: string }>>({});
+  const [files, setFiles] = useState<Record<string, FileEntry>>({});
   const [uploading, setUploading] = useState<Record<string, boolean>>({});
+  const [uploadErrors, setUploadErrors] = useState<Record<string, string>>({});
   const [errors, setErrors] = useState<Record<string, boolean>>({});
   const [exec, setExec] = useState<ExecState>({ kind: "idle" });
   const [runId, setRunId] = useState<string | null>(null);
@@ -119,8 +159,11 @@ function RunNewInner() {
     [agent],
   );
 
+  const anyUploading = Object.values(uploading).some(Boolean);
+
   const canRun = useMemo(() => {
     if (exec.kind === "running") return false;
+    if (anyUploading) return false;
     for (const f of inputs) {
       if (!f.required) continue;
       const t = (f.type ?? "text").toLowerCase();
@@ -131,7 +174,7 @@ function RunNewInner() {
       }
     }
     return true;
-  }, [inputs, values, files, exec.kind]);
+  }, [inputs, values, files, exec.kind, anyUploading]);
 
   const setVal = (name: string, v: string) => {
     setValues((s) => ({ ...s, [name]: v }));
@@ -140,22 +183,52 @@ function RunNewInner() {
 
   const handleUpload = async (field: InputField, file: File) => {
     if (!user) return;
+    const kind = (field.type ?? "").toLowerCase() as "image_upload" | "document_upload";
+
+    // Clear prior state for this field
+    setUploadErrors((s) => ({ ...s, [field.name]: "" }));
+
+    const validationError = validateFile(file, kind);
+    if (validationError) {
+      setUploadErrors((s) => ({ ...s, [field.name]: validationError }));
+      setFiles((s) => {
+        const next = { ...s };
+        delete next[field.name];
+        return next;
+      });
+      return;
+    }
+
     setUploading((s) => ({ ...s, [field.name]: true }));
     try {
-      const ext = file.name.split(".").pop() ?? "bin";
-      const path = `${user.id}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
-      const { error } = await supabase.storage.from("run-uploads").upload(path, file, {
-        contentType: file.type || undefined,
-        upsert: false,
-      });
+      const path = `${user.id}/${requestIdRef.current}/${field.name}`;
+      const { error } = await supabase.storage
+        .from("run-uploads")
+        .upload(path, file, {
+          contentType: file.type || undefined,
+          upsert: true,
+        });
       if (error) throw error;
-      const { data: pub } = supabase.storage.from("run-uploads").getPublicUrl(path);
-      setFiles((s) => ({ ...s, [field.name]: { url: pub.publicUrl, name: file.name } }));
+      setFiles((s) => ({ ...s, [field.name]: { path, name: file.name } }));
       if (errors[field.name]) setErrors((s) => ({ ...s, [field.name]: false }));
     } catch (e) {
       console.error("upload failed", e);
+      setUploadErrors((s) => ({
+        ...s,
+        [field.name]: "File upload failed. Please try again.",
+      }));
     } finally {
       setUploading((s) => ({ ...s, [field.name]: false }));
+    }
+  };
+
+  const cleanupUploads = async () => {
+    const paths = Object.values(files).map((f) => f.path);
+    if (paths.length === 0) return;
+    try {
+      await supabase.storage.from("run-uploads").remove(paths);
+    } catch (e) {
+      console.error("upload cleanup failed", e);
     }
   };
 
@@ -174,13 +247,29 @@ function RunNewInner() {
     setErrors(nextErr);
     if (Object.keys(nextErr).length) return;
 
-    const tasqr_request_id = randomId();
+    const tasqr_request_id = requestIdRef.current;
     const inputsPayload: Record<string, string> = {};
-    const filesPayload: Record<string, string> = {};
+    const filesPathPayload: Record<string, string> = {};
+    const filesSignedPayload: Record<string, string> = {};
+
     for (const f of inputs) {
       const t = (f.type ?? "text").toLowerCase();
       if (t === "image_upload" || t === "document_upload") {
-        if (files[f.name]) filesPayload[f.name] = files[f.name].url;
+        const entry = files[f.name];
+        if (!entry) continue;
+        filesPathPayload[f.name] = entry.path;
+        const { data: signed, error: signErr } = await supabase.storage
+          .from("run-uploads")
+          .createSignedUrl(entry.path, 60 * 30);
+        if (signErr || !signed?.signedUrl) {
+          setExec({
+            kind: "error",
+            message: "Could not prepare your files for the agent. Please try again.",
+            refundable: false,
+          });
+          return;
+        }
+        filesSignedPayload[f.name] = signed.signedUrl;
       } else if (values[f.name] != null) {
         inputsPayload[f.name] = values[f.name];
       }
@@ -195,7 +284,7 @@ function RunNewInner() {
         agent_id: agent.id,
         buyer_id: user.id,
         inputs: inputsPayload,
-        files: filesPayload,
+        files: filesPathPayload,
         status: "processing",
       })
       .select("id")
@@ -215,7 +304,7 @@ function RunNewInner() {
       tasqr_request_id,
       api_key: agent.seller?.api_key_prefix ?? "",
       inputs: inputsPayload,
-      files: filesPayload,
+      files: filesSignedPayload,
       buyer_id: user.id,
       timestamp: new Date().toISOString(),
     };
@@ -223,6 +312,13 @@ function RunNewInner() {
     const started = Date.now();
     const controller = new AbortController();
     const t = setTimeout(() => controller.abort(), timeoutMs(agent.processing_time));
+
+    type RunUpdate = Database["public"]["Tables"]["runs"]["Update"];
+    const finalize = async (patch: RunUpdate, execState: ExecState) => {
+      await supabase.from("runs").update(patch).eq("id", inserted.id);
+      setExec(execState);
+      await cleanupUploads();
+    };
 
     let resp: Response | null = null;
     try {
@@ -240,16 +336,15 @@ function RunNewInner() {
       const message = aborted
         ? "The agent took too long to respond. Your payment will be refunded automatically."
         : "The agent could not be reached. Your payment will be refunded automatically.";
-      await supabase
-        .from("runs")
-        .update({
+      await finalize(
+        {
           status,
           error_message: message,
           error_code: aborted ? "timeout" : "unreachable",
           processing_time_ms: Date.now() - started,
-        })
-        .eq("id", inserted.id);
-      setExec({ kind: "error", message, refundable: true });
+        },
+        { kind: "error", message, refundable: true },
+      );
       return;
     }
     clearTimeout(t);
@@ -264,33 +359,53 @@ function RunNewInner() {
     try {
       body = await resp.json();
     } catch {
-      const message = "The agent returned an invalid response. Your payment will be refunded automatically.";
-      await supabase
-        .from("runs")
-        .update({
+      const message =
+        "The agent returned an invalid response. Your payment will be refunded automatically.";
+      await finalize(
+        {
           status: "malformed",
           error_message: message,
           error_code: "malformed",
           processing_time_ms: Date.now() - started,
-        })
-        .eq("id", inserted.id);
-      setExec({ kind: "error", message, refundable: true });
+        },
+        { kind: "error", message, refundable: true },
+      );
       return;
     }
 
     const processing_time_ms = Date.now() - started;
 
     if (resp.ok && body?.status === "success" && body.output && body.output_type) {
-      await supabase
-        .from("runs")
-        .update({
+      const ot = body.output_type;
+      let storedOutput = body.output;
+      let displayOutput = body.output;
+
+      // Cache image/document URLs in run-outputs and serve via signed URL
+      if (ot === "image_url" || ot === "document_url") {
+        try {
+          const { path } = await cacheOutput({
+            data: { runId: inserted.id, sourceUrl: body.output },
+          });
+          storedOutput = path;
+          const { data: signed } = await supabase.storage
+            .from("run-outputs")
+            .createSignedUrl(path, 60 * 60 * 72);
+          displayOutput = signed?.signedUrl ?? body.output;
+        } catch (e) {
+          console.error("output caching failed", e);
+          // Fall back to seller's original URL; still record success.
+        }
+      }
+
+      await finalize(
+        {
           status: "success",
-          output: body.output,
-          output_type: body.output_type,
+          output: storedOutput,
+          output_type: ot,
           processing_time_ms,
-        })
-        .eq("id", inserted.id);
-      setExec({ kind: "success", output: body.output, output_type: body.output_type });
+        },
+        { kind: "success", output: displayOutput, output_type: ot },
+      );
       return;
     }
 
@@ -298,47 +413,45 @@ function RunNewInner() {
     const sellerFault = code === "external_service_failure" || code === "internal_error";
     if (code === "invalid_input" || code === "content_policy_violation") {
       const message = body?.error_message ?? "Your input was rejected.";
-      await supabase
-        .from("runs")
-        .update({
+      await finalize(
+        {
           status: "error",
           error_code: code,
           error_message: message,
           processing_time_ms,
-        })
-        .eq("id", inserted.id);
-      setExec({ kind: "error", message, refundable: false });
+        },
+        { kind: "error", message, refundable: false },
+      );
       return;
     }
 
     if (sellerFault) {
       const message =
         "Something went wrong on the agent's side. Your payment will be refunded automatically.";
-      await supabase
-        .from("runs")
-        .update({
+      await finalize(
+        {
           status: "error",
           error_code: code,
           error_message: message,
           processing_time_ms,
-        })
-        .eq("id", inserted.id);
-      setExec({ kind: "error", message, refundable: true });
+        },
+        { kind: "error", message, refundable: true },
+      );
       return;
     }
 
     // malformed shape
-    const message = "The agent returned an invalid response. Your payment will be refunded automatically.";
-    await supabase
-      .from("runs")
-      .update({
+    const message =
+      "The agent returned an invalid response. Your payment will be refunded automatically.";
+    await finalize(
+      {
         status: "malformed",
         error_code: "malformed",
         error_message: message,
         processing_time_ms,
-      })
-      .eq("id", inserted.id);
-    setExec({ kind: "error", message, refundable: true });
+      },
+      { kind: "error", message, refundable: true },
+    );
   };
 
   const submitReview = async () => {
@@ -394,6 +507,8 @@ function RunNewInner() {
             {inputs.map((f) => {
               const t = (f.type ?? "text").toLowerCase();
               const err = errors[f.name];
+              const upErr = uploadErrors[f.name];
+              const isUp = uploading[f.name];
               const label = (
                 <label className="block font-mono text-xs text-foreground mb-1.5">
                   {f.label ?? f.name}
@@ -434,33 +549,55 @@ function RunNewInner() {
                   )}
                   {(t === "image_upload" || t === "document_upload") && (
                     <div className="space-y-2">
-                      <input
-                        type="file"
-                        accept={
-                          t === "image_upload"
-                            ? "image/*"
-                            : ".pdf,.doc,.docx,.txt,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,text/plain"
-                        }
-                        onChange={(e) => {
-                          const file = e.target.files?.[0];
-                          if (file) handleUpload(f, file);
-                        }}
-                        className={cn(
-                          "w-full bg-surface-raised border rounded-[4px] px-3 py-2 font-sans text-sm text-foreground file:mr-3 file:py-1 file:px-2 file:rounded-[4px] file:border-0 file:bg-primary file:text-primary-foreground file:font-mono file:text-xs",
-                          err ? "border-destructive" : "border-border",
-                        )}
-                      />
-                      {uploading[f.name] && (
-                        <p className="font-mono text-xs text-muted-foreground">Uploading…</p>
+                      {isUp ? (
+                        <div className="w-full bg-surface-raised border border-border rounded-[4px] px-3 py-2 flex items-center gap-3">
+                          <div className="flex-1 h-2 bg-background rounded-[4px] overflow-hidden">
+                            <div className="h-full w-1/2 bg-primary animate-pulse" />
+                          </div>
+                          <span className="font-mono text-xs text-muted-foreground">
+                            Uploading
+                          </span>
+                        </div>
+                      ) : (
+                        <input
+                          type="file"
+                          accept={
+                            t === "image_upload"
+                              ? IMG_EXTS.map((e) => "." + e).join(",")
+                              : DOC_EXTS.map((e) => "." + e).join(",")
+                          }
+                          onChange={(e) => {
+                            const file = e.target.files?.[0];
+                            if (file) handleUpload(f, file);
+                          }}
+                          className={cn(
+                            "w-full bg-surface-raised border rounded-[4px] px-3 py-2 font-sans text-sm text-foreground file:mr-3 file:py-1 file:px-2 file:rounded-[4px] file:border-0 file:bg-primary file:text-primary-foreground file:font-mono file:text-xs",
+                            err || upErr ? "border-destructive" : "border-border",
+                          )}
+                        />
                       )}
-                      {files[f.name] && (
+                      {isUp && (
+                        <p className="font-sans text-xs text-muted-foreground">
+                          Uploading file...
+                        </p>
+                      )}
+                      {!isUp && files[f.name] && (
                         <p className="font-mono text-xs text-muted-foreground truncate">
                           Uploaded: {files[f.name].name}
                         </p>
                       )}
+                      {upErr && (
+                        <p className="font-sans text-xs" style={{ color: SAFETY_ORANGE }}>
+                          {upErr}
+                        </p>
+                      )}
                     </div>
                   )}
-                  {(t === "text" || (t !== "textarea" && t !== "dropdown" && t !== "image_upload" && t !== "document_upload")) && (
+                  {(t === "text" ||
+                    (t !== "textarea" &&
+                      t !== "dropdown" &&
+                      t !== "image_upload" &&
+                      t !== "document_upload")) && (
                     <input
                       type="text"
                       value={values[f.name] ?? ""}
@@ -473,7 +610,9 @@ function RunNewInner() {
                     />
                   )}
                   {err && (
-                    <p className="font-mono text-xs text-destructive mt-1">This field is required.</p>
+                    <p className="font-mono text-xs text-destructive mt-1">
+                      This field is required.
+                    </p>
                   )}
                 </div>
               );
