@@ -65,7 +65,7 @@ function BrowseInner() {
       const { data } = await supabase
         .from("agents")
         .select(
-          "id,slug,name,short_description,category,pricing_model,one_time_price,subscription_price,average_rating,review_count,run_count,created_at,seller:seller_profiles!agents_seller_id_fkey(handle)",
+          "id,slug,name,short_description,category,pricing_model,one_time_price,subscription_price,average_rating,review_count,run_count,created_at,seller:seller_profiles!agents_seller_id_fkey(handle,reliability_score)",
         )
         .eq("status", "live");
       if (cancelled) return;
@@ -79,10 +79,16 @@ function BrowseInner() {
         const sellerIds = Array.from(new Set((raw ?? []).map((r: any) => r.seller_id)));
         const { data: sellers } = await supabase
           .from("seller_profiles")
-          .select("id,handle")
+          .select("id,handle,reliability_score")
           .in("id", sellerIds.length ? sellerIds : ["00000000-0000-0000-0000-000000000000"]);
-        const map = new Map((sellers ?? []).map((s: any) => [s.id, s.handle]));
-        list = (raw ?? []).map((r: any) => ({ ...r, seller: { handle: map.get(r.seller_id) ?? null } }));
+        const map = new Map((sellers ?? []).map((s: any) => [s.id, s]));
+        list = (raw ?? []).map((r: any) => ({
+          ...r,
+          seller: {
+            handle: map.get(r.seller_id)?.handle ?? null,
+            reliability_score: map.get(r.seller_id)?.reliability_score ?? null,
+          },
+        }));
       }
       setAgents(list);
       setLoading(false);
