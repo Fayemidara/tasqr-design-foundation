@@ -177,6 +177,111 @@ function AgentDetailInner({ slug }: { slug: string }) {
 
   const inputs = Array.isArray(agent.input_schema) ? agent.input_schema : [];
 
+  const goToRun = (transactionId: string) => {
+    navigate({
+      to: "/runs/new",
+      search: { agent: agent.slug ?? agent.id, transaction: transactionId },
+    });
+  };
+
+  const handleBuyOneTime = async () => {
+    if (!user || !agent || !seller) return;
+    setPayMessage(null);
+
+    // Reuse an existing held, unconsumed transaction if present
+    const { data: existing } = await supabase
+      .from("transactions")
+      .select("id")
+      .eq("buyer_id", user.id)
+      .eq("agent_id", agent.id)
+      .eq("status", "held")
+      .is("transaction_type", null)
+      .limit(1);
+    // Note: we treat 'unused' as no run referencing this transaction yet.
+    const { data: heldRows } = await supabase
+      .from("transactions")
+      .select("id, runs:runs!runs_transaction_id_fkey(id)")
+      .eq("buyer_id", user.id)
+      .eq("agent_id", agent.id)
+      .eq("status", "held");
+    const reusable =
+      (heldRows as { id: string; runs: { id: string }[] | null }[] | null)?.find(
+        (r) => !r.runs || r.runs.length === 0,
+      ) ?? null;
+    if (reusable) {
+      goToRun(reusable.id);
+      return;
+    }
+    // Silence unused warning for the simpler query above
+    void existing;
+
+    setPaying(true);
+    const amount = Number(agent.one_time_price ?? 0);
+    const platformFee = Math.round(amount * 10) / 100; // 10%
+    const sellerEarnings = Math.round(amount * 90) / 100; // 90%
+    const holdUntil = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
+
+    const { data: inserted, error: insErr } = await supabase
+      .from("transactions")
+      .insert({
+        buyer_id: user.id,
+        agent_id: agent.id,
+        seller_id: seller.id,
+        transaction_type: "one_time",
+        amount,
+        platform_fee: platformFee,
+        seller_earnings: sellerEarnings,
+        status: "pending",
+        hold_until: holdUntil,
+      })
+      .select("id")
+      .single();
+
+    if (insErr || !inserted) {
+      setPaying(false);
+      setPayMessage("Could not start checkout. Please try again.");
+      return;
+    }
+
+    const transactionId = inserted.id;
+    const publicKey = import.meta.env.VITE_PAYSTACK_PUBLIC_KEY as string | undefined;
+    if (!publicKey || !window.PaystackPop) {
+      setPaying(false);
+      setPayMessage("Payment is not configured.");
+      return;
+    }
+
+    const handler = window.PaystackPop.setup({
+      key: publicKey,
+      email: user.email ?? "",
+      amount: Math.round(amount * 100), // USD -> kobo placeholder
+      ref: transactionId,
+      metadata: {
+        transaction_id: transactionId,
+        agent_id: agent.id,
+        buyer_id: user.id,
+      },
+      onSuccess: async (resp) => {
+        await supabase
+          .from("transactions")
+          .update({ status: "held", paystack_reference: resp.reference })
+          .eq("id", transactionId);
+        setPaying(false);
+        goToRun(transactionId);
+      },
+      onClose: async () => {
+        await supabase
+          .from("transactions")
+          .update({ status: "cancelled" })
+          .eq("id", transactionId);
+        setPaying(false);
+        setPayMessage("Payment cancelled.");
+      },
+    });
+    handler.openIframe();
+  };
+
+
   return (
     <div className="max-w-7xl mx-auto px-8 py-10">
       <div className="grid grid-cols-1 lg:grid-cols-[65%_35%] gap-8">
