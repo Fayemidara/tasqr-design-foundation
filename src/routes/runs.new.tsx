@@ -9,7 +9,7 @@ import { supabase } from "@/integrations/supabase/client";
 import type { Database } from "@/integrations/supabase/types";
 import { useAuth } from "@/hooks/use-auth";
 import { cn } from "@/lib/utils";
-import { cacheRunOutput } from "@/lib/runs.functions";
+import { cacheRunOutput, getAgentApiKey } from "@/lib/runs.functions";
 
 type InputField = {
   name: string;
@@ -28,7 +28,6 @@ type AgentRow = {
   processing_time: string | null;
   input_schema: InputField[] | null;
   endpoint_url: string | null;
-  seller: { api_key_prefix: string | null } | null;
 };
 
 type FileEntry = { path: string; name: string };
