@@ -111,6 +111,17 @@ export function SellerDashboardView() {
       if (cancelled) return;
       setProfile(prof as SellerProfile);
       setAgents((ags ?? []) as Agent[]);
+
+      // Refund-triggering failures in the last 30 days for this seller's agents.
+      const since = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
+      const { count } = await supabase
+        .from("transactions")
+        .select("id", { count: "exact", head: true })
+        .eq("seller_id", prof.id)
+        .eq("status", "refunded")
+        .gte("refunded_at", since);
+      if (!cancelled) setRefundCount(count ?? 0);
+
       setLoading(false);
     })();
     return () => {
