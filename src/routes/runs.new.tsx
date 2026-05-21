@@ -146,7 +146,7 @@ function RunNewInner() {
       const query = supabase
         .from("agents")
         .select(
-          "id,slug,name,short_description,processing_time,input_schema,endpoint_url",
+          "id,slug,name,short_description,processing_time,input_schema,endpoint_url,seller_id",
         );
       const { data } = await (slugOrId.length === 36
         ? query.eq("id", slugOrId).maybeSingle()
