@@ -381,8 +381,20 @@ function RunNewInner() {
     const t = setTimeout(() => controller.abort(), timeoutMs(agent.processing_time));
 
     type RunUpdate = Database["public"]["Tables"]["runs"]["Update"];
-    const finalize = async (patch: RunUpdate, execState: ExecState) => {
+    // Admin note: refunded transactions are identified by
+    // transactions.status = 'refunded' and can be exported for manual
+    // Paystack processing.
+    const refundIfNeeded = async () => {
+      if (!transactionId) return;
+      await supabase.rpc("trigger_refund", { _transaction_id: transactionId });
+    };
+    const finalize = async (
+      patch: RunUpdate,
+      execState: ExecState,
+      refund = false,
+    ) => {
       await supabase.from("runs").update(patch).eq("id", inserted.id);
+      if (refund) await refundIfNeeded();
       setExec(execState);
       await cleanupUploads();
     };
