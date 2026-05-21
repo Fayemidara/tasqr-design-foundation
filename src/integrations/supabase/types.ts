@@ -422,6 +422,7 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      get_agent_api_key_prefix: { Args: { _agent_id: string }; Returns: string }
       get_my_seller_profile: {
         Args: never
         Returns: {
