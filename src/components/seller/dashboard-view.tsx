@@ -87,6 +87,7 @@ export function SellerDashboardView() {
   const [loading, setLoading] = useState(true);
   const [profile, setProfile] = useState<SellerProfile | null>(null);
   const [agents, setAgents] = useState<Agent[]>([]);
+  const [refundCount, setRefundCount] = useState<number>(0);
 
   useEffect(() => {
     if (!user) return;
@@ -110,6 +111,17 @@ export function SellerDashboardView() {
       if (cancelled) return;
       setProfile(prof as SellerProfile);
       setAgents((ags ?? []) as Agent[]);
+
+      // Refund-triggering failures in the last 30 days for this seller's agents.
+      const since = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
+      const { count } = await supabase
+        .from("transactions")
+        .select("id", { count: "exact", head: true })
+        .eq("seller_id", prof.id)
+        .eq("status", "refunded")
+        .gte("refunded_at", since);
+      if (!cancelled) setRefundCount(count ?? 0);
+
       setLoading(false);
     })();
     return () => {
@@ -292,6 +304,9 @@ export function SellerDashboardView() {
               </div>
             ))}
           </div>
+          <p className="text-xs text-muted-foreground font-sans">
+            {refundCount} {refundCount === 1 ? "refund" : "refunds"} triggered in the last 30 days
+          </p>
           <p className="text-xs text-muted-foreground font-sans">
             Score updates automatically after each run
           </p>

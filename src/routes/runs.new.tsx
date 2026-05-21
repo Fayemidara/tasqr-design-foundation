@@ -381,8 +381,20 @@ function RunNewInner() {
     const t = setTimeout(() => controller.abort(), timeoutMs(agent.processing_time));
 
     type RunUpdate = Database["public"]["Tables"]["runs"]["Update"];
-    const finalize = async (patch: RunUpdate, execState: ExecState) => {
+    // Admin note: refunded transactions are identified by
+    // transactions.status = 'refunded' and can be exported for manual
+    // Paystack processing.
+    const refundIfNeeded = async () => {
+      if (!transactionId) return;
+      await supabase.rpc("trigger_refund", { _transaction_id: transactionId });
+    };
+    const finalize = async (
+      patch: RunUpdate,
+      execState: ExecState,
+      refund = false,
+    ) => {
       await supabase.from("runs").update(patch).eq("id", inserted.id);
+      if (refund) await refundIfNeeded();
       setExec(execState);
       await cleanupUploads();
     };
@@ -401,8 +413,8 @@ function RunNewInner() {
       const aborted = (e as Error).name === "AbortError";
       const status = aborted ? "timeout" : "unreachable";
       const message = aborted
-        ? "The agent took too long to respond. Your payment will be refunded automatically."
-        : "The agent could not be reached. Your payment will be refunded automatically.";
+        ? "The agent took too long to respond. You will receive a full refund."
+        : "The agent could not be reached. You will receive a full refund.";
       await finalize(
         {
           status,
@@ -411,6 +423,7 @@ function RunNewInner() {
           processing_time_ms: Date.now() - started,
         },
         { kind: "error", message, refundable: true },
+        true,
       );
       return;
     }
@@ -427,7 +440,7 @@ function RunNewInner() {
       body = await resp.json();
     } catch {
       const message =
-        "The agent returned an invalid response. Your payment will be refunded automatically.";
+        "The agent returned an invalid response. You will receive a full refund.";
       await finalize(
         {
           status: "malformed",
@@ -436,6 +449,7 @@ function RunNewInner() {
           processing_time_ms: Date.now() - started,
         },
         { kind: "error", message, refundable: true },
+        true,
       );
       return;
     }
@@ -494,7 +508,9 @@ function RunNewInner() {
 
     if (sellerFault) {
       const message =
-        "Something went wrong on the agent's side. Your payment will be refunded automatically.";
+        code === "external_service_failure"
+          ? "The agent's external service failed. You will receive a full refund."
+          : "Something went wrong on the agent's side. You will receive a full refund.";
       await finalize(
         {
           status: "error",
@@ -503,13 +519,14 @@ function RunNewInner() {
           processing_time_ms,
         },
         { kind: "error", message, refundable: true },
+        true,
       );
       return;
     }
 
     // malformed shape
     const message =
-      "The agent returned an invalid response. Your payment will be refunded automatically.";
+      "The agent returned an invalid response. You will receive a full refund.";
     await finalize(
       {
         status: "malformed",
@@ -518,6 +535,7 @@ function RunNewInner() {
         processing_time_ms,
       },
       { kind: "error", message, refundable: true },
+      true,
     );
   };
 
