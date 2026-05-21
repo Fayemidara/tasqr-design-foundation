@@ -68,9 +68,7 @@ function SettingsPage() {
   useEffect(() => {
     if (!user) return;
     supabase
-      .from("seller_profiles")
-      .select("airtm_email, api_key_prefix, api_key_last_used")
-      .eq("user_id", user.id)
+      .rpc("get_my_seller_profile")
       .maybeSingle()
       .then(({ data }) => {
         setAirtmEmail(data?.airtm_email ?? "");
