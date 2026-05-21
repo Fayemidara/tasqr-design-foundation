@@ -683,7 +683,30 @@ function AgentDetailInner({ slug }: { slug: string }) {
                 </div>
               )}
 
-              {selectedPricing === "one_time" && hasOne ? (
+              {activeSubscription ? (
+                <>
+                  <a
+                    href={`/runs/new?agent=${agent.slug ?? agent.id}&subscription=${activeSubscription.id}`}
+                    className="block w-full text-center bg-primary text-primary-foreground font-mono text-sm py-3 rounded-[4px] hover:bg-primary/90 transition-colors"
+                  >
+                    Run Agent
+                  </a>
+                  <p className="font-sans text-xs text-muted-foreground">
+                    Subscribed — renews {new Date(activeSubscription.current_period_end).toLocaleDateString()}
+                  </p>
+                  <button
+                    onClick={handleCancelSubscription}
+                    className="block w-full text-center bg-secondary text-secondary-foreground font-mono text-sm py-3 rounded-[4px] hover:bg-secondary/80 transition-colors"
+                  >
+                    Cancel Subscription
+                  </button>
+                  {payMessage && (
+                    <p className="font-sans text-xs" style={{ color: "#FF6A1F" }}>
+                      {payMessage}
+                    </p>
+                  )}
+                </>
+              ) : selectedPricing === "one_time" && hasOne ? (
                 <>
                   <button
                     onClick={handleBuyOneTime}
@@ -692,10 +715,21 @@ function AgentDetailInner({ slug }: { slug: string }) {
                     {ctaPrice}
                   </button>
                   {payMessage && (
-                    <p
-                      className="font-sans text-xs"
-                      style={{ color: "#FF6A1F" }}
-                    >
+                    <p className="font-sans text-xs" style={{ color: "#FF6A1F" }}>
+                      {payMessage}
+                    </p>
+                  )}
+                </>
+              ) : selectedPricing === "subscription" && hasSub ? (
+                <>
+                  <button
+                    onClick={handleSubscribe}
+                    className="block w-full text-center bg-primary text-primary-foreground font-mono text-sm py-3 rounded-[4px] hover:bg-primary/90 transition-colors"
+                  >
+                    {ctaPrice}
+                  </button>
+                  {payMessage && (
+                    <p className="font-sans text-xs" style={{ color: "#FF6A1F" }}>
                       {payMessage}
                     </p>
                   )}
