@@ -95,6 +95,10 @@ function ReliabilityBadge({ score }: { score: number }) {
 }
 
 function AgentDetailInner({ slug }: { slug: string }) {
+  const { user } = useAuth();
+  const navigate = useNavigate();
+  const [paying, setPaying] = useState(false);
+  const [payMessage, setPayMessage] = useState<string | null>(null);
   const [agent, setAgent] = useState<Agent | null>(null);
   const [reviews, setReviews] = useState<Review[]>([]);
   const [loading, setLoading] = useState(true);
