@@ -12,7 +12,7 @@ import { cn } from "@/lib/utils";
 import { cacheRunOutput, getAgentApiKey } from "@/lib/runs.functions";
 
 type InputField = {
-  name: string;
+  field_name: string;
   label?: string;
   type?: string;
   placeholder?: string;
