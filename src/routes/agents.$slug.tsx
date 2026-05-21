@@ -188,32 +188,29 @@ function AgentDetailInner({ slug }: { slug: string }) {
     if (!user || !agent || !seller) return;
     setPayMessage(null);
 
-    // Reuse an existing held, unconsumed transaction if present
-    const { data: existing } = await supabase
+    // Reuse an existing held transaction that has not been consumed by a run.
+    const { data: heldRows } = await supabase
       .from("transactions")
       .select("id")
       .eq("buyer_id", user.id)
       .eq("agent_id", agent.id)
-      .eq("status", "held")
-      .is("transaction_type", null)
-      .limit(1);
-    // Note: we treat 'unused' as no run referencing this transaction yet.
-    const { data: heldRows } = await supabase
-      .from("transactions")
-      .select("id, runs:runs!runs_transaction_id_fkey(id)")
-      .eq("buyer_id", user.id)
-      .eq("agent_id", agent.id)
       .eq("status", "held");
-    const reusable =
-      (heldRows as { id: string; runs: { id: string }[] | null }[] | null)?.find(
-        (r) => !r.runs || r.runs.length === 0,
-      ) ?? null;
-    if (reusable) {
-      goToRun(reusable.id);
-      return;
+    const heldIds = (heldRows ?? []).map((r) => r.id);
+    if (heldIds.length > 0) {
+      const { data: usedRuns } = await supabase
+        .from("runs")
+        .select("transaction_id")
+        .in("transaction_id", heldIds);
+      const usedSet = new Set(
+        (usedRuns ?? []).map((r) => r.transaction_id).filter(Boolean) as string[],
+      );
+      const reusableId = heldIds.find((id) => !usedSet.has(id));
+      if (reusableId) {
+        goToRun(reusableId);
+        return;
+      }
     }
-    // Silence unused warning for the simpler query above
-    void existing;
+
 
     setPaying(true);
     const amount = Number(agent.one_time_price ?? 0);
