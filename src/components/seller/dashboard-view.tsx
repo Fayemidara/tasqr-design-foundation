@@ -305,6 +305,9 @@ export function SellerDashboardView() {
             ))}
           </div>
           <p className="text-xs text-muted-foreground font-sans">
+            {refundCount} {refundCount === 1 ? "refund" : "refunds"} triggered in the last 30 days
+          </p>
+          <p className="text-xs text-muted-foreground font-sans">
             Score updates automatically after each run
           </p>
         </Card>
