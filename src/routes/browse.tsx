@@ -32,7 +32,7 @@ type Agent = {
   review_count: number;
   run_count: number;
   created_at: string;
-  seller: { handle: string | null } | null;
+  seller: { handle: string | null; reliability_score: number | null } | null;
 };
 
 const LABEL = "font-mono text-[11px] uppercase tracking-[0.05em] text-muted-foreground";
