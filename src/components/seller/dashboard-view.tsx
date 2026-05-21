@@ -88,6 +88,12 @@ export function SellerDashboardView() {
   const [profile, setProfile] = useState<SellerProfile | null>(null);
   const [agents, setAgents] = useState<Agent[]>([]);
   const [refundCount, setRefundCount] = useState<number>(0);
+  const [metrics, setMetrics] = useState({
+    timeoutRate: 0,
+    errorRate: 0,
+    malformedCount: 0,
+    disputeRate: 0,
+  });
 
   useEffect(() => {
     if (!user) return;
@@ -121,6 +127,35 @@ export function SellerDashboardView() {
         .eq("status", "refunded")
         .gte("refunded_at", since);
       if (!cancelled) setRefundCount(count ?? 0);
+
+      // Reliability sub-metrics: pull last 30 days of runs for seller's agents.
+      const agentIds = (ags ?? []).map((a: any) => a.id);
+      if (agentIds.length > 0) {
+        const { data: runs } = await supabase
+          .from("runs")
+          .select("id,status")
+          .in("agent_id", agentIds)
+          .gte("created_at", since);
+        const total = runs?.length ?? 0;
+        if (total > 0 && runs) {
+          const timeouts = runs.filter((r) => r.status === "timeout").length;
+          const errs = runs.filter((r) => r.status === "error").length;
+          const malformed = runs.filter((r) => r.status === "malformed").length;
+          const { data: disputeRows } = await supabase
+            .from("disputes")
+            .select("run_id")
+            .in("run_id", runs.map((r) => r.id));
+          const disputes = disputeRows?.length ?? 0;
+          if (!cancelled) {
+            setMetrics({
+              timeoutRate: (timeouts / total) * 100,
+              errorRate: (errs / total) * 100,
+              malformedCount: malformed,
+              disputeRate: (disputes / total) * 100,
+            });
+          }
+        }
+      }
 
       setLoading(false);
     })();
