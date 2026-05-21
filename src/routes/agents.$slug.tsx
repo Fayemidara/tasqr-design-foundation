@@ -178,9 +178,10 @@ function AgentDetailInner({ slug }: { slug: string }) {
   const inputs = Array.isArray(agent.input_schema) ? agent.input_schema : [];
 
   const goToRun = (transactionId: string) => {
+    const slugOrId = agent.slug ?? agent.id;
     navigate({
       to: "/runs/new",
-      search: { agent: agent.slug ?? agent.id, transaction: transactionId },
+      search: { agent: slugOrId, transaction: transactionId } as never,
     });
   };
 
