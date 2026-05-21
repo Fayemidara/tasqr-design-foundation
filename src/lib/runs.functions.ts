@@ -60,17 +60,12 @@ export const getAgentApiKey = createServerFn({ method: "POST" })
   .inputValidator((input: unknown) =>
     z.object({ agentId: z.string().uuid() }).parse(input),
   )
-  .handler(async ({ data }) => {
-    const { data: agent, error } = await supabaseAdmin
-      .from("agents")
-      .select(
-        "id,status,seller:seller_profiles!agents_seller_id_fkey(api_key_prefix)",
-      )
-      .eq("id", data.agentId)
-      .maybeSingle();
+  .handler(async ({ data, context }) => {
+    const { supabase } = context;
+    const { data: prefix, error } = await supabase.rpc(
+      "get_agent_api_key_prefix",
+      { _agent_id: data.agentId },
+    );
     if (error) throw new Error(error.message);
-    if (!agent || agent.status !== "live") throw new Error("not_found");
-    const seller = (agent as { seller: { api_key_prefix: string | null } | null })
-      .seller;
-    return { api_key_prefix: seller?.api_key_prefix ?? "" };
+    return { api_key_prefix: (prefix as string | null) ?? "" };
   });
