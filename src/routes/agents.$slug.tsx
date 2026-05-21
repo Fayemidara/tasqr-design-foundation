@@ -104,6 +104,10 @@ function AgentDetailInner({ slug }: { slug: string }) {
   const [reviews, setReviews] = useState<Review[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedPricing, setSelectedPricing] = useState<"one_time" | "subscription">("one_time");
+  const [activeSubscription, setActiveSubscription] = useState<{
+    id: string;
+    current_period_end: string;
+  } | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -127,6 +131,24 @@ function AgentDetailInner({ slug }: { slug: string }) {
           .order("created_at", { ascending: false })
           .limit(5);
         if (!cancelled) setReviews((rev as Review[]) ?? []);
+
+        if (user) {
+          const { data: subs } = await supabase
+            .from("subscriptions")
+            .select("id,current_period_end")
+            .eq("buyer_id", user.id)
+            .eq("agent_id", a.id)
+            .eq("status", "active")
+            .gt("current_period_end", new Date().toISOString())
+            .order("current_period_end", { ascending: false })
+            .limit(1);
+          if (!cancelled && subs && subs.length > 0) {
+            setActiveSubscription({
+              id: subs[0].id as string,
+              current_period_end: subs[0].current_period_end as string,
+            });
+          }
+        }
       }
       // default pricing selection
       if (a) {
@@ -139,7 +161,7 @@ function AgentDetailInner({ slug }: { slug: string }) {
     return () => {
       cancelled = true;
     };
-  }, [slug]);
+  }, [slug, user]);
 
   if (loading) {
     return (
