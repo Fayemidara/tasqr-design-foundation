@@ -89,6 +89,9 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
         href: appCss,
       },
     ],
+    scripts: [
+      { src: "https://js.paystack.co/v1/inline.js", defer: true },
+    ],
   }),
   shellComponent: RootShell,
   component: RootComponent,
