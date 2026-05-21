@@ -340,8 +340,152 @@ function AgentDetailInner({ slug }: { slug: string }) {
     }
   };
 
+  const goToSubscriptionRun = (subscriptionId: string) => {
+    const slugOrId = agent?.slug ?? agent?.id ?? "";
+    navigate({
+      to: "/runs/new",
+      search: { agent: slugOrId, subscription: subscriptionId } as never,
+    });
+  };
 
-  return (
+  const handleSubscribe = async () => {
+    if (!user || !agent || !seller) return;
+    setPayMessage(null);
+    setPaying(true);
+
+    const amount = Number(agent.subscription_price ?? 0);
+    const platformFee = Math.round(amount * 10) / 100;
+    const sellerEarnings = Math.round(amount * 90) / 100;
+    const holdUntil = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
+
+    const { data: inserted, error: insErr } = await supabase
+      .from("transactions")
+      .insert({
+        buyer_id: user.id,
+        agent_id: agent.id,
+        seller_id: seller.id,
+        transaction_type: "subscription",
+        amount,
+        platform_fee: platformFee,
+        seller_earnings: sellerEarnings,
+        status: "pending",
+        hold_until: holdUntil,
+      })
+      .select("id")
+      .single();
+
+    if (insErr || !inserted) {
+      setPaying(false);
+      setPayMessage("Could not start checkout. Please try again.");
+      return;
+    }
+
+    const transactionId = inserted.id;
+    const publicKey = import.meta.env.VITE_PAYSTACK_PUBLIC_KEY as string | undefined;
+    if (!publicKey) {
+      setPaying(false);
+      setPayMessage("Payment system failed to load. Please refresh and try again.");
+      return;
+    }
+
+    if (!window.PaystackPop) {
+      await new Promise<void>((resolve) => {
+        let waited = 0;
+        const iv = setInterval(() => {
+          waited += 100;
+          if (window.PaystackPop || waited >= 3000) {
+            clearInterval(iv);
+            resolve();
+          }
+        }, 100);
+      });
+    }
+
+    if (!window.PaystackPop) {
+      setPaying(false);
+      setPayMessage("Payment system failed to load. Please refresh and try again.");
+      return;
+    }
+
+    try {
+      const handler = window.PaystackPop.setup({
+        key: publicKey,
+        email: user.email ?? "",
+        amount: Math.round(amount * 100),
+        ref: transactionId,
+        metadata: {
+          transaction_id: transactionId,
+          agent_id: agent.id,
+          buyer_id: user.id,
+          transaction_type: "subscription",
+        },
+        callback: function (response: { reference: string }) {
+          (async () => {
+            await supabase
+              .from("transactions")
+              .update({ status: "held", paystack_reference: response.reference })
+              .eq("id", transactionId);
+            const now = new Date();
+            const end = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
+            const { data: subRow } = await supabase
+              .from("subscriptions")
+              .insert({
+                buyer_id: user.id,
+                agent_id: agent.id,
+                seller_id: seller.id,
+                transaction_id: transactionId,
+                status: "active",
+                current_period_start: now.toISOString(),
+                current_period_end: end.toISOString(),
+                paystack_reference: response.reference,
+              })
+              .select("id")
+              .single();
+            setPaying(false);
+            if (subRow?.id) {
+              setActiveSubscription({
+                id: subRow.id as string,
+                current_period_end: end.toISOString(),
+              });
+              goToSubscriptionRun(subRow.id as string);
+            }
+          })();
+        },
+        onClose: function () {
+          supabase
+            .from("transactions")
+            .update({ status: "cancelled" })
+            .eq("id", transactionId)
+            .then(() => {
+              setPaying(false);
+              setPayMessage("Payment cancelled.");
+            });
+        },
+      });
+      handler.openIframe();
+      setPaying(false);
+    } catch (err) {
+      console.error("Error opening Paystack iframe:", err);
+      setPaying(false);
+      setPayMessage("Could not open checkout. Please try again.");
+    }
+  };
+
+  const handleCancelSubscription = async () => {
+    if (!activeSubscription) return;
+    const { error } = await supabase
+      .from("subscriptions")
+      .update({ status: "cancelled" })
+      .eq("id", activeSubscription.id);
+    if (!error) {
+      setPayMessage(
+        `Subscription cancelled. You retain access until ${new Date(activeSubscription.current_period_end).toLocaleDateString()}.`,
+      );
+      setActiveSubscription(null);
+    }
+  };
+
+
     <div className="max-w-7xl mx-auto px-8 py-10">
       <div className="grid grid-cols-1 lg:grid-cols-[65%_35%] gap-8">
         {/* Left column */}
