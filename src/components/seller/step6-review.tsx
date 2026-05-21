@@ -144,7 +144,8 @@ export function Step6Review({
     setPublishing(true);
     setError(null);
 
-    const slug = slugify(step5.name);
+    const baseSlug = slugify(step5.name);
+    const slug = await getUniqueSlug(baseSlug);
     const { error: insertErr } = await supabase.from("agents").insert({
       seller_id: sellerId,
       name: step5.name,
