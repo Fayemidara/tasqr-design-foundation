@@ -92,13 +92,6 @@ export type Database = {
             referencedRelation: "seller_profiles"
             referencedColumns: ["id"]
           },
-          {
-            foreignKeyName: "agents_seller_id_fkey"
-            columns: ["seller_id"]
-            isOneToOne: false
-            referencedRelation: "seller_profiles_public"
-            referencedColumns: ["id"]
-          },
         ]
       }
       disputes: {
@@ -422,57 +415,38 @@ export type Database = {
             referencedRelation: "seller_profiles"
             referencedColumns: ["id"]
           },
-          {
-            foreignKeyName: "transactions_seller_id_fkey"
-            columns: ["seller_id"]
-            isOneToOne: false
-            referencedRelation: "seller_profiles_public"
-            referencedColumns: ["id"]
-          },
         ]
       }
     }
     Views: {
-      seller_profiles_public: {
-        Row: {
-          bio: string | null
-          created_at: string | null
-          handle: string | null
-          id: string | null
-          reliability_score: number | null
-          user_id: string | null
-          website: string | null
-        }
-        Insert: {
-          bio?: string | null
-          created_at?: string | null
-          handle?: string | null
-          id?: string | null
-          reliability_score?: number | null
-          user_id?: string | null
-          website?: string | null
-        }
-        Update: {
-          bio?: string | null
-          created_at?: string | null
-          handle?: string | null
-          id?: string | null
-          reliability_score?: number | null
-          user_id?: string | null
-          website?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "seller_profiles_user_id_fkey"
-            columns: ["user_id"]
-            isOneToOne: true
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
+      [_ in never]: never
     }
     Functions: {
+      get_my_seller_profile: {
+        Args: never
+        Returns: {
+          airtm_email: string | null
+          api_key_hash: string | null
+          api_key_last_used: string | null
+          api_key_prefix: string | null
+          bio: string | null
+          created_at: string
+          draft_input_schema: Json | null
+          handle: string | null
+          id: string
+          reliability_score: number
+          total_earnings: number
+          user_id: string
+          website: string | null
+          withdrawable_balance: number
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "seller_profiles"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
       is_seller_owner: { Args: { seller_profile_id: string }; Returns: boolean }
     }
     Enums: {
