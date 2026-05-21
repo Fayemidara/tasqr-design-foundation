@@ -1,10 +1,28 @@
 import { useEffect, useState } from "react";
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { Star, Clock, ExternalLink } from "lucide-react";
 import { AppShell } from "@/components/layout/app-shell";
 import { RequireAuth } from "@/components/auth/require-auth";
 import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/hooks/use-auth";
 import { cn } from "@/lib/utils";
+
+declare global {
+  interface Window {
+    PaystackPop?: {
+      setup(config: {
+        key: string;
+        email: string;
+        amount: number;
+        ref: string;
+        currency?: string;
+        metadata?: Record<string, unknown>;
+        onSuccess?: (resp: { reference: string }) => void;
+        onClose?: () => void;
+      }): { openIframe(): void };
+    };
+  }
+}
 
 type InputField = {
   label?: string;
