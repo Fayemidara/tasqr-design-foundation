@@ -105,9 +105,7 @@ export function Step6Review({
     if (!user) return;
     (async () => {
       const { data } = await supabase
-        .from("seller_profiles")
-        .select("id, draft_input_schema, api_key_prefix")
-        .eq("user_id", user.id)
+        .rpc("get_my_seller_profile")
         .maybeSingle();
       if (data) {
         setSellerId(data.id);
