@@ -396,6 +396,13 @@ function RunNewInner() {
     ) => {
       await supabase.from("runs").update(patch).eq("id", inserted.id);
       if (refund) await refundIfNeeded();
+      // Recalculate seller reliability score after every final run status.
+      const finalStatuses = ["success", "timeout", "unreachable", "error", "malformed"];
+      if (patch.status && finalStatuses.includes(patch.status)) {
+        await supabase.rpc("calculate_reliability_score", {
+          _seller_id: agent.seller_id,
+        });
+      }
       setExec(execState);
       await cleanupUploads();
     };
