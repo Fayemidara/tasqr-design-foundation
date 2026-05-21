@@ -449,6 +449,7 @@ function RunNewInner() {
           processing_time_ms: Date.now() - started,
         },
         { kind: "error", message, refundable: true },
+        true,
       );
       return;
     }
