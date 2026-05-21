@@ -225,11 +225,26 @@ function BrowseInner() {
                     <h3 className="font-mono text-base text-foreground leading-tight">
                       {a.name}
                     </h3>
-                    {a.category && (
-                      <span className="font-mono text-[10px] uppercase tracking-[0.05em] px-2 py-0.5 rounded-[4px] bg-accent text-accent-foreground shrink-0">
-                        {a.category}
-                      </span>
-                    )}
+                    <div className="flex items-center gap-1 shrink-0">
+                      {a.seller?.reliability_score != null && Number(a.seller.reliability_score) >= 90 && (
+                        <span className="font-mono text-[10px] uppercase tracking-[0.05em] px-2 py-0.5 rounded-[4px] bg-warning text-warning-foreground">
+                          High Reliability
+                        </span>
+                      )}
+                      {a.seller?.reliability_score != null && Number(a.seller.reliability_score) < 70 && (
+                        <span
+                          className="font-mono text-[10px] uppercase tracking-[0.05em] px-2 py-0.5 rounded-[4px] text-white"
+                          style={{ backgroundColor: "#F4511E" }}
+                        >
+                          Low Reliability
+                        </span>
+                      )}
+                      {a.category && (
+                        <span className="font-mono text-[10px] uppercase tracking-[0.05em] px-2 py-0.5 rounded-[4px] bg-accent text-accent-foreground">
+                          {a.category}
+                        </span>
+                      )}
+                    </div>
                   </div>
                   <p className="font-sans text-sm text-muted-foreground line-clamp-1">
                     {a.short_description}
