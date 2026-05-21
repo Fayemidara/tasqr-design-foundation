@@ -413,8 +413,8 @@ function RunNewInner() {
       const aborted = (e as Error).name === "AbortError";
       const status = aborted ? "timeout" : "unreachable";
       const message = aborted
-        ? "The agent took too long to respond. Your payment will be refunded automatically."
-        : "The agent could not be reached. Your payment will be refunded automatically.";
+        ? "The agent took too long to respond. You will receive a full refund."
+        : "The agent could not be reached. You will receive a full refund.";
       await finalize(
         {
           status,
