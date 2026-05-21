@@ -328,10 +328,10 @@ export function SellerDashboardView() {
           </div>
           <div className="grid grid-cols-2 gap-4 pt-2">
             {[
-              { label: "Timeout Rate", value: "0%" },
-              { label: "Error Rate", value: "0%" },
-              { label: "Spec Violations", value: "N/A" },
-              { label: "Dispute Rate", value: "0%" },
+              { label: "Timeout Rate", value: `${metrics.timeoutRate.toFixed(1)}%` },
+              { label: "Error Rate", value: `${metrics.errorRate.toFixed(1)}%` },
+              { label: "Spec Violations", value: String(metrics.malformedCount) },
+              { label: "Dispute Rate", value: `${metrics.disputeRate.toFixed(1)}%` },
             ].map((m) => (
               <div key={m.label} className="space-y-1">
                 <div className={LABEL}>{m.label}</div>
