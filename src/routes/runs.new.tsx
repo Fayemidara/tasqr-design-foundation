@@ -6,6 +6,7 @@ import { Star, Download } from "lucide-react";
 import { AppShell } from "@/components/layout/app-shell";
 import { RequireAuth } from "@/components/auth/require-auth";
 import { supabase } from "@/integrations/supabase/client";
+import type { Database } from "@/integrations/supabase/types";
 import { useAuth } from "@/hooks/use-auth";
 import { cn } from "@/lib/utils";
 import { cacheRunOutput } from "@/lib/runs.functions";
