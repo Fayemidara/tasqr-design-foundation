@@ -1,10 +1,28 @@
 import { useEffect, useState } from "react";
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { Star, Clock, ExternalLink } from "lucide-react";
 import { AppShell } from "@/components/layout/app-shell";
 import { RequireAuth } from "@/components/auth/require-auth";
 import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/hooks/use-auth";
 import { cn } from "@/lib/utils";
+
+declare global {
+  interface Window {
+    PaystackPop?: {
+      setup(config: {
+        key: string;
+        email: string;
+        amount: number;
+        ref: string;
+        currency?: string;
+        metadata?: Record<string, unknown>;
+        onSuccess?: (resp: { reference: string }) => void;
+        onClose?: () => void;
+      }): { openIframe(): void };
+    };
+  }
+}
 
 type InputField = {
   label?: string;
@@ -77,6 +95,10 @@ function ReliabilityBadge({ score }: { score: number }) {
 }
 
 function AgentDetailInner({ slug }: { slug: string }) {
+  const { user } = useAuth();
+  const navigate = useNavigate();
+  const [paying, setPaying] = useState(false);
+  const [payMessage, setPayMessage] = useState<string | null>(null);
   const [agent, setAgent] = useState<Agent | null>(null);
   const [reviews, setReviews] = useState<Review[]>([]);
   const [loading, setLoading] = useState(true);
@@ -154,6 +176,109 @@ function AgentDetailInner({ slug }: { slug: string }) {
       : `Run Agent — $${Number(agent.one_time_price ?? 0).toFixed(2)}`;
 
   const inputs = Array.isArray(agent.input_schema) ? agent.input_schema : [];
+
+  const goToRun = (transactionId: string) => {
+    const slugOrId = agent.slug ?? agent.id;
+    navigate({
+      to: "/runs/new",
+      search: { agent: slugOrId, transaction: transactionId } as never,
+    });
+  };
+
+  const handleBuyOneTime = async () => {
+    if (!user || !agent || !seller) return;
+    setPayMessage(null);
+
+    // Reuse an existing held transaction that has not been consumed by a run.
+    const { data: heldRows } = await supabase
+      .from("transactions")
+      .select("id")
+      .eq("buyer_id", user.id)
+      .eq("agent_id", agent.id)
+      .eq("status", "held");
+    const heldIds = (heldRows ?? []).map((r) => r.id);
+    if (heldIds.length > 0) {
+      const { data: usedRuns } = await supabase
+        .from("runs")
+        .select("transaction_id")
+        .in("transaction_id", heldIds);
+      const usedSet = new Set(
+        (usedRuns ?? []).map((r) => r.transaction_id).filter(Boolean) as string[],
+      );
+      const reusableId = heldIds.find((id) => !usedSet.has(id));
+      if (reusableId) {
+        goToRun(reusableId);
+        return;
+      }
+    }
+
+
+    setPaying(true);
+    const amount = Number(agent.one_time_price ?? 0);
+    const platformFee = Math.round(amount * 10) / 100; // 10%
+    const sellerEarnings = Math.round(amount * 90) / 100; // 90%
+    const holdUntil = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
+
+    const { data: inserted, error: insErr } = await supabase
+      .from("transactions")
+      .insert({
+        buyer_id: user.id,
+        agent_id: agent.id,
+        seller_id: seller.id,
+        transaction_type: "one_time",
+        amount,
+        platform_fee: platformFee,
+        seller_earnings: sellerEarnings,
+        status: "pending",
+        hold_until: holdUntil,
+      })
+      .select("id")
+      .single();
+
+    if (insErr || !inserted) {
+      setPaying(false);
+      setPayMessage("Could not start checkout. Please try again.");
+      return;
+    }
+
+    const transactionId = inserted.id;
+    const publicKey = import.meta.env.VITE_PAYSTACK_PUBLIC_KEY as string | undefined;
+    if (!publicKey || !window.PaystackPop) {
+      setPaying(false);
+      setPayMessage("Payment is not configured.");
+      return;
+    }
+
+    const handler = window.PaystackPop.setup({
+      key: publicKey,
+      email: user.email ?? "",
+      amount: Math.round(amount * 100), // USD -> kobo placeholder
+      ref: transactionId,
+      metadata: {
+        transaction_id: transactionId,
+        agent_id: agent.id,
+        buyer_id: user.id,
+      },
+      onSuccess: async (resp) => {
+        await supabase
+          .from("transactions")
+          .update({ status: "held", paystack_reference: resp.reference })
+          .eq("id", transactionId);
+        setPaying(false);
+        goToRun(transactionId);
+      },
+      onClose: async () => {
+        await supabase
+          .from("transactions")
+          .update({ status: "cancelled" })
+          .eq("id", transactionId);
+        setPaying(false);
+        setPayMessage("Payment cancelled.");
+      },
+    });
+    handler.openIframe();
+  };
+
 
   return (
     <div className="max-w-7xl mx-auto px-8 py-10">
@@ -352,12 +477,30 @@ function AgentDetailInner({ slug }: { slug: string }) {
                 </div>
               )}
 
-              <a
-                href={`/runs/new?agent=${agent.slug ?? agent.id}`}
-                className="block w-full text-center bg-primary text-primary-foreground font-mono text-sm py-3 rounded-[4px] hover:bg-primary/90 transition-colors"
-              >
-                {ctaPrice}
-              </a>
+              {selectedPricing === "one_time" && hasOne ? (
+                <>
+                  <button
+                    onClick={handleBuyOneTime}
+                    disabled={paying}
+                    className={cn(
+                      "block w-full text-center bg-primary text-primary-foreground font-mono text-sm py-3 rounded-[4px] hover:bg-primary/90 transition-colors",
+                      paying && "opacity-60 cursor-not-allowed",
+                    )}
+                  >
+                    {paying ? "Opening checkout…" : ctaPrice}
+                  </button>
+                  {payMessage && (
+                    <p className="font-sans text-xs text-muted-foreground">{payMessage}</p>
+                  )}
+                </>
+              ) : (
+                <a
+                  href={`/runs/new?agent=${agent.slug ?? agent.id}`}
+                  className="block w-full text-center bg-primary text-primary-foreground font-mono text-sm py-3 rounded-[4px] hover:bg-primary/90 transition-colors"
+                >
+                  {ctaPrice}
+                </a>
+              )}
 
               <p className="font-sans text-xs text-muted-foreground">
                 Powered by your infrastructure. Tasqr handles payments and delivery.

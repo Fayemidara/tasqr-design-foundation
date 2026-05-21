@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import ReactMarkdown from "react-markdown";
 import { Star, Download } from "lucide-react";
@@ -107,18 +107,22 @@ function Ellipsis() {
 
 function RunNewInner() {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const cacheOutput = useServerFn(cacheRunOutput);
 
-  const slugOrId =
+  const params =
     typeof window !== "undefined"
-      ? new URLSearchParams(window.location.search).get("agent") ?? ""
-      : "";
+      ? new URLSearchParams(window.location.search)
+      : new URLSearchParams();
+  const slugOrId = params.get("agent") ?? "";
+  const transactionParam = params.get("transaction") ?? "";
 
   // Stable request id for this run session — used for storage path.
   const requestIdRef = useRef<string>(randomId());
 
   const [agent, setAgent] = useState<AgentRow | null>(null);
   const [loading, setLoading] = useState(true);
+  const [transactionId, setTransactionId] = useState<string | null>(null);
   const [values, setValues] = useState<Record<string, string>>({});
   const [files, setFiles] = useState<Record<string, FileEntry>>({});
   const [uploading, setUploading] = useState<Record<string, boolean>>({});
@@ -145,13 +149,38 @@ function RunNewInner() {
         ? query.eq("id", slugOrId).maybeSingle()
         : query.eq("slug", slugOrId).maybeSingle());
       if (cancelled) return;
-      setAgent((data as unknown as AgentRow) ?? null);
+      const ag = (data as unknown as AgentRow) ?? null;
+      setAgent(ag);
+
+      // Verify transaction param if present.
+      if (transactionParam) {
+        if (!ag || !user) {
+          navigate({ to: "/browse" });
+          return;
+        }
+        const { data: tx } = await supabase
+          .from("transactions")
+          .select("id, status, buyer_id, agent_id")
+          .eq("id", transactionParam)
+          .maybeSingle();
+        if (
+          !tx ||
+          tx.status !== "held" ||
+          tx.buyer_id !== user.id ||
+          tx.agent_id !== ag.id
+        ) {
+          navigate({ to: "/browse" });
+          return;
+        }
+        setTransactionId(tx.id);
+      }
+
       setLoading(false);
     })();
     return () => {
       cancelled = true;
     };
-  }, [slugOrId]);
+  }, [slugOrId, transactionParam, user, navigate]);
 
   const inputs = useMemo<InputField[]>(
     () => (Array.isArray(agent?.input_schema) ? agent!.input_schema : []),
@@ -285,6 +314,7 @@ function RunNewInner() {
         inputs: inputsPayload,
         files: filesPathPayload,
         status: "processing",
+        transaction_id: transactionId,
       })
       .select("id")
       .single();
