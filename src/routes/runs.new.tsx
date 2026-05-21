@@ -312,7 +312,7 @@ function RunNewInner() {
     const controller = new AbortController();
     const t = setTimeout(() => controller.abort(), timeoutMs(agent.processing_time));
 
-    type RunUpdate = Parameters<ReturnType<typeof supabase.from<"runs">>["update"]>[0];
+    type RunUpdate = Database["public"]["Tables"]["runs"]["Update"];
     const finalize = async (patch: RunUpdate, execState: ExecState) => {
       await supabase.from("runs").update(patch).eq("id", inserted.id);
       setExec(execState);
