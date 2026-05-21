@@ -199,6 +199,18 @@ export function SellerDashboardView() {
         <StatCard label="Active Agents" value={String(liveCount)} loading={loading} />
       </div>
 
+      {!loading && profile && score < 50 && (
+        <Card className="p-5" >
+          <p
+            className="font-sans text-sm"
+            style={{ color: "#F4511E" }}
+          >
+            Your agents have been paused due to low reliability. Improve your agent and contact support to restore.
+          </p>
+        </Card>
+      )}
+
+
       {/* Payout banner */}
       <Card className="p-5">
         <p className="font-sans text-sm text-foreground">
