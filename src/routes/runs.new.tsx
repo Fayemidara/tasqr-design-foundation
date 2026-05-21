@@ -314,6 +314,7 @@ function RunNewInner() {
         inputs: inputsPayload,
         files: filesPathPayload,
         status: "processing",
+        transaction_id: transactionId,
       })
       .select("id")
       .single();
