@@ -350,6 +350,74 @@ export type Database = {
           },
         ]
       }
+      subscriptions: {
+        Row: {
+          agent_id: string
+          buyer_id: string
+          created_at: string
+          current_period_end: string
+          current_period_start: string
+          id: string
+          paystack_reference: string | null
+          seller_id: string
+          status: string
+          transaction_id: string | null
+        }
+        Insert: {
+          agent_id: string
+          buyer_id: string
+          created_at?: string
+          current_period_end?: string
+          current_period_start?: string
+          id?: string
+          paystack_reference?: string | null
+          seller_id: string
+          status?: string
+          transaction_id?: string | null
+        }
+        Update: {
+          agent_id?: string
+          buyer_id?: string
+          created_at?: string
+          current_period_end?: string
+          current_period_start?: string
+          id?: string
+          paystack_reference?: string | null
+          seller_id?: string
+          status?: string
+          transaction_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "subscriptions_agent_id_fkey"
+            columns: ["agent_id"]
+            isOneToOne: false
+            referencedRelation: "agents"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "subscriptions_buyer_id_fkey"
+            columns: ["buyer_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "subscriptions_seller_id_fkey"
+            columns: ["seller_id"]
+            isOneToOne: false
+            referencedRelation: "seller_profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "subscriptions_transaction_id_fkey"
+            columns: ["transaction_id"]
+            isOneToOne: false
+            referencedRelation: "transactions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       transactions: {
         Row: {
           agent_id: string

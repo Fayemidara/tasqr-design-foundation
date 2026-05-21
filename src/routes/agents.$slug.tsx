@@ -104,6 +104,10 @@ function AgentDetailInner({ slug }: { slug: string }) {
   const [reviews, setReviews] = useState<Review[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedPricing, setSelectedPricing] = useState<"one_time" | "subscription">("one_time");
+  const [activeSubscription, setActiveSubscription] = useState<{
+    id: string;
+    current_period_end: string;
+  } | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -127,6 +131,24 @@ function AgentDetailInner({ slug }: { slug: string }) {
           .order("created_at", { ascending: false })
           .limit(5);
         if (!cancelled) setReviews((rev as Review[]) ?? []);
+
+        if (user) {
+          const { data: subs } = await supabase
+            .from("subscriptions")
+            .select("id,current_period_end")
+            .eq("buyer_id", user.id)
+            .eq("agent_id", a.id)
+            .eq("status", "active")
+            .gt("current_period_end", new Date().toISOString())
+            .order("current_period_end", { ascending: false })
+            .limit(1);
+          if (!cancelled && subs && subs.length > 0) {
+            setActiveSubscription({
+              id: subs[0].id as string,
+              current_period_end: subs[0].current_period_end as string,
+            });
+          }
+        }
       }
       // default pricing selection
       if (a) {
@@ -139,7 +161,7 @@ function AgentDetailInner({ slug }: { slug: string }) {
     return () => {
       cancelled = true;
     };
-  }, [slug]);
+  }, [slug, user]);
 
   if (loading) {
     return (
@@ -318,9 +340,154 @@ function AgentDetailInner({ slug }: { slug: string }) {
     }
   };
 
+  const goToSubscriptionRun = (subscriptionId: string) => {
+    const slugOrId = agent?.slug ?? agent?.id ?? "";
+    navigate({
+      to: "/runs/new",
+      search: { agent: slugOrId, subscription: subscriptionId } as never,
+    });
+  };
+
+  const handleSubscribe = async () => {
+    if (!user || !agent || !seller) return;
+    setPayMessage(null);
+    setPaying(true);
+
+    const amount = Number(agent.subscription_price ?? 0);
+    const platformFee = Math.round(amount * 10) / 100;
+    const sellerEarnings = Math.round(amount * 90) / 100;
+    const holdUntil = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
+
+    const { data: inserted, error: insErr } = await supabase
+      .from("transactions")
+      .insert({
+        buyer_id: user.id,
+        agent_id: agent.id,
+        seller_id: seller.id,
+        transaction_type: "subscription",
+        amount,
+        platform_fee: platformFee,
+        seller_earnings: sellerEarnings,
+        status: "pending",
+        hold_until: holdUntil,
+      })
+      .select("id")
+      .single();
+
+    if (insErr || !inserted) {
+      setPaying(false);
+      setPayMessage("Could not start checkout. Please try again.");
+      return;
+    }
+
+    const transactionId = inserted.id;
+    const publicKey = import.meta.env.VITE_PAYSTACK_PUBLIC_KEY as string | undefined;
+    if (!publicKey) {
+      setPaying(false);
+      setPayMessage("Payment system failed to load. Please refresh and try again.");
+      return;
+    }
+
+    if (!window.PaystackPop) {
+      await new Promise<void>((resolve) => {
+        let waited = 0;
+        const iv = setInterval(() => {
+          waited += 100;
+          if (window.PaystackPop || waited >= 3000) {
+            clearInterval(iv);
+            resolve();
+          }
+        }, 100);
+      });
+    }
+
+    if (!window.PaystackPop) {
+      setPaying(false);
+      setPayMessage("Payment system failed to load. Please refresh and try again.");
+      return;
+    }
+
+    try {
+      const handler = window.PaystackPop.setup({
+        key: publicKey,
+        email: user.email ?? "",
+        amount: Math.round(amount * 100),
+        ref: transactionId,
+        metadata: {
+          transaction_id: transactionId,
+          agent_id: agent.id,
+          buyer_id: user.id,
+          transaction_type: "subscription",
+        },
+        callback: function (response: { reference: string }) {
+          (async () => {
+            await supabase
+              .from("transactions")
+              .update({ status: "held", paystack_reference: response.reference })
+              .eq("id", transactionId);
+            const now = new Date();
+            const end = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
+            const { data: subRow } = await supabase
+              .from("subscriptions")
+              .insert({
+                buyer_id: user.id,
+                agent_id: agent.id,
+                seller_id: seller.id,
+                transaction_id: transactionId,
+                status: "active",
+                current_period_start: now.toISOString(),
+                current_period_end: end.toISOString(),
+                paystack_reference: response.reference,
+              })
+              .select("id")
+              .single();
+            setPaying(false);
+            if (subRow?.id) {
+              setActiveSubscription({
+                id: subRow.id as string,
+                current_period_end: end.toISOString(),
+              });
+              goToSubscriptionRun(subRow.id as string);
+            }
+          })();
+        },
+        onClose: function () {
+          supabase
+            .from("transactions")
+            .update({ status: "cancelled" })
+            .eq("id", transactionId)
+            .then(() => {
+              setPaying(false);
+              setPayMessage("Payment cancelled.");
+            });
+        },
+      });
+      handler.openIframe();
+      setPaying(false);
+    } catch (err) {
+      console.error("Error opening Paystack iframe:", err);
+      setPaying(false);
+      setPayMessage("Could not open checkout. Please try again.");
+    }
+  };
+
+  const handleCancelSubscription = async () => {
+    if (!activeSubscription) return;
+    const { error } = await supabase
+      .from("subscriptions")
+      .update({ status: "cancelled" })
+      .eq("id", activeSubscription.id);
+    if (!error) {
+      setPayMessage(
+        `Subscription cancelled. You retain access until ${new Date(activeSubscription.current_period_end).toLocaleDateString()}.`,
+      );
+      setActiveSubscription(null);
+    }
+  };
 
   return (
     <div className="max-w-7xl mx-auto px-8 py-10">
+
       <div className="grid grid-cols-1 lg:grid-cols-[65%_35%] gap-8">
         {/* Left column */}
         <div className="space-y-10 min-w-0">
@@ -516,7 +683,30 @@ function AgentDetailInner({ slug }: { slug: string }) {
                 </div>
               )}
 
-              {selectedPricing === "one_time" && hasOne ? (
+              {activeSubscription ? (
+                <>
+                  <a
+                    href={`/runs/new?agent=${agent.slug ?? agent.id}&subscription=${activeSubscription.id}`}
+                    className="block w-full text-center bg-primary text-primary-foreground font-mono text-sm py-3 rounded-[4px] hover:bg-primary/90 transition-colors"
+                  >
+                    Run Agent
+                  </a>
+                  <p className="font-sans text-xs text-muted-foreground">
+                    Subscribed — renews {new Date(activeSubscription.current_period_end).toLocaleDateString()}
+                  </p>
+                  <button
+                    onClick={handleCancelSubscription}
+                    className="block w-full text-center bg-secondary text-secondary-foreground font-mono text-sm py-3 rounded-[4px] hover:bg-secondary/80 transition-colors"
+                  >
+                    Cancel Subscription
+                  </button>
+                  {payMessage && (
+                    <p className="font-sans text-xs" style={{ color: "#FF6A1F" }}>
+                      {payMessage}
+                    </p>
+                  )}
+                </>
+              ) : selectedPricing === "one_time" && hasOne ? (
                 <>
                   <button
                     onClick={handleBuyOneTime}
@@ -525,10 +715,21 @@ function AgentDetailInner({ slug }: { slug: string }) {
                     {ctaPrice}
                   </button>
                   {payMessage && (
-                    <p
-                      className="font-sans text-xs"
-                      style={{ color: "#FF6A1F" }}
-                    >
+                    <p className="font-sans text-xs" style={{ color: "#FF6A1F" }}>
+                      {payMessage}
+                    </p>
+                  )}
+                </>
+              ) : selectedPricing === "subscription" && hasSub ? (
+                <>
+                  <button
+                    onClick={handleSubscribe}
+                    className="block w-full text-center bg-primary text-primary-foreground font-mono text-sm py-3 rounded-[4px] hover:bg-primary/90 transition-colors"
+                  >
+                    {ctaPrice}
+                  </button>
+                  {payMessage && (
+                    <p className="font-sans text-xs" style={{ color: "#FF6A1F" }}>
                       {payMessage}
                     </p>
                   )}

@@ -116,6 +116,7 @@ function RunNewInner() {
       : new URLSearchParams();
   const slugOrId = params.get("agent") ?? "";
   const transactionParam = params.get("transaction") ?? "";
+  const subscriptionParam = params.get("subscription") ?? "";
 
   // Stable request id for this run session — used for storage path.
   const requestIdRef = useRef<string>(randomId());
@@ -123,6 +124,7 @@ function RunNewInner() {
   const [agent, setAgent] = useState<AgentRow | null>(null);
   const [loading, setLoading] = useState(true);
   const [transactionId, setTransactionId] = useState<string | null>(null);
+  const [subscriptionId, setSubscriptionId] = useState<string | null>(null);
   const [values, setValues] = useState<Record<string, string>>({});
   const [files, setFiles] = useState<Record<string, FileEntry>>({});
   const [uploading, setUploading] = useState<Record<string, boolean>>({});
@@ -152,8 +154,36 @@ function RunNewInner() {
       const ag = (data as unknown as AgentRow) ?? null;
       setAgent(ag);
 
-      // Verify transaction param if present.
-      if (transactionParam) {
+      // Verify subscription param if present (takes precedence over transaction).
+      if (subscriptionParam) {
+        if (!ag || !user) {
+          navigate({ to: "/browse" });
+          return;
+        }
+        const { data: sub } = await supabase
+          .from("subscriptions")
+          .select("id, status, buyer_id, agent_id, current_period_end")
+          .eq("id", subscriptionParam)
+          .maybeSingle();
+        if (
+          !sub ||
+          sub.buyer_id !== user.id ||
+          sub.agent_id !== ag.id
+        ) {
+          navigate({ to: "/browse" });
+          return;
+        }
+        const expired = new Date(sub.current_period_end as string).getTime() <= Date.now();
+        if (sub.status !== "active" || expired) {
+          navigate({
+            to: "/agents/$slug",
+            params: { slug: ag.slug ?? ag.id },
+            search: { msg: "Your subscription has expired. Please renew to continue." } as never,
+          });
+          return;
+        }
+        setSubscriptionId(sub.id as string);
+      } else if (transactionParam) {
         if (!ag || !user) {
           navigate({ to: "/browse" });
           return;
@@ -180,7 +210,7 @@ function RunNewInner() {
     return () => {
       cancelled = true;
     };
-  }, [slugOrId, transactionParam, user, navigate]);
+  }, [slugOrId, transactionParam, subscriptionParam, user, navigate]);
 
   const inputs = useMemo<InputField[]>(
     () => (Array.isArray(agent?.input_schema) ? agent!.input_schema : []),
