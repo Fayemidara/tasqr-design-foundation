@@ -87,6 +87,7 @@ export function SellerDashboardView() {
   const [loading, setLoading] = useState(true);
   const [profile, setProfile] = useState<SellerProfile | null>(null);
   const [agents, setAgents] = useState<Agent[]>([]);
+  const [refundCount, setRefundCount] = useState<number>(0);
 
   useEffect(() => {
     if (!user) return;
