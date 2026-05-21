@@ -25,6 +25,27 @@ function slugify(name: string) {
     .replace(/-+/g, "-");
 }
 
+function randomSuffix() {
+  const chars = "abcdefghijklmnopqrstuvwxyz0123456789";
+  let s = "";
+  for (let i = 0; i < 4; i++) s += chars[Math.floor(Math.random() * chars.length)];
+  return s;
+}
+
+async function getUniqueSlug(base: string): Promise<string> {
+  let candidate = base;
+  // eslint-disable-next-line no-constant-condition
+  while (true) {
+    const { data } = await supabase
+      .from("agents")
+      .select("slug")
+      .eq("slug", candidate)
+      .maybeSingle();
+    if (!data) return candidate;
+    candidate = `${base}-${randomSuffix()}`;
+  }
+}
+
 function SectionHeader({ title, onEdit }: { title: string; onEdit: () => void }) {
   return (
     <div className="flex items-center justify-between mb-3">
@@ -109,7 +130,8 @@ export function NewAgentReview({
     setPublishing(true);
     setError(null);
 
-    const slug = slugify(step5.name);
+    const baseSlug = slugify(step5.name);
+    const slug = await getUniqueSlug(baseSlug);
     const { error: insertErr } = await supabase.from("agents").insert({
       seller_id: sellerId,
       name: step5.name,
