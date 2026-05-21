@@ -476,12 +476,30 @@ function AgentDetailInner({ slug }: { slug: string }) {
                 </div>
               )}
 
-              <a
-                href={`/runs/new?agent=${agent.slug ?? agent.id}`}
-                className="block w-full text-center bg-primary text-primary-foreground font-mono text-sm py-3 rounded-[4px] hover:bg-primary/90 transition-colors"
-              >
-                {ctaPrice}
-              </a>
+              {selectedPricing === "one_time" && hasOne ? (
+                <>
+                  <button
+                    onClick={handleBuyOneTime}
+                    disabled={paying}
+                    className={cn(
+                      "block w-full text-center bg-primary text-primary-foreground font-mono text-sm py-3 rounded-[4px] hover:bg-primary/90 transition-colors",
+                      paying && "opacity-60 cursor-not-allowed",
+                    )}
+                  >
+                    {paying ? "Opening checkout…" : ctaPrice}
+                  </button>
+                  {payMessage && (
+                    <p className="font-sans text-xs text-muted-foreground">{payMessage}</p>
+                  )}
+                </>
+              ) : (
+                <a
+                  href={`/runs/new?agent=${agent.slug ?? agent.id}`}
+                  className="block w-full text-center bg-primary text-primary-foreground font-mono text-sm py-3 rounded-[4px] hover:bg-primary/90 transition-colors"
+                >
+                  {ctaPrice}
+                </a>
+              )}
 
               <p className="font-sans text-xs text-muted-foreground">
                 Powered by your infrastructure. Tasqr handles payments and delivery.
