@@ -508,7 +508,9 @@ function RunNewInner() {
 
     if (sellerFault) {
       const message =
-        "Something went wrong on the agent's side. Your payment will be refunded automatically.";
+        code === "external_service_failure"
+          ? "The agent's external service failed. You will receive a full refund."
+          : "Something went wrong on the agent's side. You will receive a full refund.";
       await finalize(
         {
           status: "error",
@@ -517,13 +519,14 @@ function RunNewInner() {
           processing_time_ms,
         },
         { kind: "error", message, refundable: true },
+        true,
       );
       return;
     }
 
     // malformed shape
     const message =
-      "The agent returned an invalid response. Your payment will be refunded automatically.";
+      "The agent returned an invalid response. You will receive a full refund.";
     await finalize(
       {
         status: "malformed",
@@ -532,6 +535,7 @@ function RunNewInner() {
         processing_time_ms,
       },
       { kind: "error", message, refundable: true },
+      true,
     );
   };
 
