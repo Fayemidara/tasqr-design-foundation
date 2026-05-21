@@ -23,6 +23,8 @@ const LABEL = "font-mono text-[11px] uppercase tracking-[0.05em] text-muted-fore
 function RunDetail({ id }: { id: string }) {
   const [run, setRun] = useState<Run | null>(null);
   const [loading, setLoading] = useState(true);
+  const [signedUrl, setSignedUrl] = useState<string | null>(null);
+  const [outputExpired, setOutputExpired] = useState(false);
 
   useEffect(() => {
     (async () => {
@@ -34,7 +36,26 @@ function RunDetail({ id }: { id: string }) {
         )
         .eq("id", id)
         .maybeSingle();
-      setRun((data as unknown as Run) ?? null);
+      const r = (data as unknown as Run) ?? null;
+      setRun(r);
+
+      // For cached file outputs, regenerate a fresh signed URL from run-outputs.
+      if (
+        r &&
+        r.status === "success" &&
+        r.output &&
+        (r.output_type === "image_url" || r.output_type === "document_url")
+      ) {
+        const path = r.output;
+        const { data: signed, error } = await supabase.storage
+          .from("run-outputs")
+          .createSignedUrl(path, 60 * 60 * 72);
+        if (signed?.signedUrl && !error) {
+          setSignedUrl(signed.signedUrl);
+        } else {
+          setOutputExpired(true);
+        }
+      }
       setLoading(false);
     })();
   }, [id]);
@@ -53,6 +74,10 @@ function RunDetail({ id }: { id: string }) {
       </div>
     );
   }
+
+  const isFileOutput =
+    run.output_type === "image_url" || run.output_type === "document_url";
+  const fileUrl = signedUrl;
 
   return (
     <div className="max-w-4xl mx-auto px-8 py-10 space-y-6">
@@ -81,15 +106,20 @@ function RunDetail({ id }: { id: string }) {
               <ReactMarkdown>{run.output}</ReactMarkdown>
             </div>
           )}
-          {run.output_type === "image_url" && (
+          {isFileOutput && outputExpired && (
+            <p className="font-sans text-sm text-muted-foreground">
+              Output expired. Files are available for 72 hours after delivery.
+            </p>
+          )}
+          {run.output_type === "image_url" && fileUrl && (
             <div className="space-y-2">
               <img
-                src={run.output}
+                src={fileUrl}
                 alt="Result"
                 className="w-full rounded-[4px] border border-[#334155]"
               />
               <a
-                href={run.output}
+                href={fileUrl}
                 download
                 target="_blank"
                 rel="noreferrer noopener"
@@ -99,9 +129,9 @@ function RunDetail({ id }: { id: string }) {
               </a>
             </div>
           )}
-          {run.output_type === "document_url" && (
+          {run.output_type === "document_url" && fileUrl && (
             <a
-              href={run.output}
+              href={fileUrl}
               download
               target="_blank"
               rel="noreferrer noopener"
