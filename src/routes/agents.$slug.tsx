@@ -18,6 +18,7 @@ declare global {
         currency?: string;
         metadata?: Record<string, unknown>;
         onSuccess?: (resp: { reference: string }) => void;
+        callback?: (resp: { reference: string }) => void;
         onClose?: () => void;
       }): { openIframe(): void };
     };
