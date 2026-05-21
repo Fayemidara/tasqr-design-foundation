@@ -9,7 +9,7 @@ import { supabase } from "@/integrations/supabase/client";
 import type { Database } from "@/integrations/supabase/types";
 import { useAuth } from "@/hooks/use-auth";
 import { cn } from "@/lib/utils";
-import { cacheRunOutput } from "@/lib/runs.functions";
+import { cacheRunOutput, getAgentApiKey } from "@/lib/runs.functions";
 
 type InputField = {
   name: string;
@@ -28,7 +28,6 @@ type AgentRow = {
   processing_time: string | null;
   input_schema: InputField[] | null;
   endpoint_url: string | null;
-  seller: { api_key_prefix: string | null } | null;
 };
 
 type FileEntry = { path: string; name: string };
@@ -140,7 +139,7 @@ function RunNewInner() {
       const query = supabase
         .from("agents")
         .select(
-          "id,slug,name,short_description,processing_time,input_schema,endpoint_url,seller:seller_profiles!agents_seller_id_fkey(api_key_prefix)",
+          "id,slug,name,short_description,processing_time,input_schema,endpoint_url",
         );
       const { data } = await (slugOrId.length === 36
         ? query.eq("id", slugOrId).maybeSingle()
@@ -300,9 +299,17 @@ function RunNewInner() {
     }
     setRunId(inserted.id);
 
+    let apiKey = "";
+    try {
+      const r = await getAgentApiKey({ data: { agentId: agent.id } });
+      apiKey = r.api_key_prefix ?? "";
+    } catch {
+      // fall through with empty key; seller endpoint will reject
+    }
+
     const payload = {
       tasqr_request_id,
-      api_key: agent.seller?.api_key_prefix ?? "",
+      api_key: apiKey,
       inputs: inputsPayload,
       files: filesSignedPayload,
       buyer_id: user.id,

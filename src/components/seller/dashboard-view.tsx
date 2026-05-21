@@ -94,9 +94,7 @@ export function SellerDashboardView() {
     (async () => {
       setLoading(true);
       const { data: prof } = await supabase
-        .from("seller_profiles")
-        .select("id,total_earnings,withdrawable_balance,reliability_score,airtm_email")
-        .eq("user_id", user.id)
+        .rpc("get_my_seller_profile")
         .maybeSingle();
       if (!prof) {
         if (!cancelled) setLoading(false);

@@ -43,3 +43,34 @@ export const cacheRunOutput = createServerFn({ method: "POST" })
 
     return { path };
   });
+
+/**
+ * Returns the seller's api_key_prefix for a given live agent so a buyer can
+ * invoke the seller's endpoint. The seller_profiles.api_key_prefix column is
+ * not exposed via PostgREST (column grants exclude it), so this lookup must
+ * go through the service-role admin client.
+ *
+ * Auth-gated: any signed-in user can fetch the key for any LIVE agent. This
+ * matches the original behavior where api_key_prefix was joined publicly,
+ * but at least closes off enumeration via the table API and unauthenticated
+ * access.
+ */
+export const getAgentApiKey = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: unknown) =>
+    z.object({ agentId: z.string().uuid() }).parse(input),
+  )
+  .handler(async ({ data }) => {
+    const { data: agent, error } = await supabaseAdmin
+      .from("agents")
+      .select(
+        "id,status,seller:seller_profiles!agents_seller_id_fkey(api_key_prefix)",
+      )
+      .eq("id", data.agentId)
+      .maybeSingle();
+    if (error) throw new Error(error.message);
+    if (!agent || agent.status !== "live") throw new Error("not_found");
+    const seller = (agent as { seller: { api_key_prefix: string | null } | null })
+      .seller;
+    return { api_key_prefix: seller?.api_key_prefix ?? "" };
+  });
