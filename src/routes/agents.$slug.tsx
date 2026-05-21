@@ -515,16 +515,17 @@ function AgentDetailInner({ slug }: { slug: string }) {
                 <>
                   <button
                     onClick={handleBuyOneTime}
-                    disabled={paying}
-                    className={cn(
-                      "block w-full text-center bg-primary text-primary-foreground font-mono text-sm py-3 rounded-[4px] hover:bg-primary/90 transition-colors",
-                      paying && "opacity-60 cursor-not-allowed",
-                    )}
+                    className="block w-full text-center bg-primary text-primary-foreground font-mono text-sm py-3 rounded-[4px] hover:bg-primary/90 transition-colors"
                   >
-                    {paying ? "Opening checkout…" : ctaPrice}
+                    {ctaPrice}
                   </button>
                   {payMessage && (
-                    <p className="font-sans text-xs text-muted-foreground">{payMessage}</p>
+                    <p
+                      className="font-sans text-xs"
+                      style={{ color: "#FF6A1F" }}
+                    >
+                      {payMessage}
+                    </p>
                   )}
                 </>
               ) : (
