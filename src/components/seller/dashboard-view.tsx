@@ -88,6 +88,9 @@ export function SellerDashboardView() {
   const [profile, setProfile] = useState<SellerProfile | null>(null);
   const [agents, setAgents] = useState<Agent[]>([]);
   const [refundCount, setRefundCount] = useState<number>(0);
+  const [disputes, setDisputes] = useState<
+    { id: string; created_at: string; status: string; agent_name: string }[]
+  >([]);
   const [metrics, setMetrics] = useState({
     timeoutRate: 0,
     errorRate: 0,
