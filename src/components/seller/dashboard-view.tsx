@@ -160,6 +160,26 @@ export function SellerDashboardView() {
         }
       }
 
+      // Open disputes against this seller's agents
+      if (agentIds.length > 0) {
+        const { data: openDisputes } = await supabase
+          .from("disputes")
+          .select("id,created_at,status,run:runs!inner(agent_id,agent:agents(name))")
+          .eq("status", "open")
+          .in("run.agent_id", agentIds)
+          .order("created_at", { ascending: false });
+        if (!cancelled && openDisputes) {
+          setDisputes(
+            (openDisputes as any[]).map((d) => ({
+              id: d.id,
+              created_at: d.created_at,
+              status: d.status,
+              agent_name: d.run?.agent?.name ?? "—",
+            })),
+          );
+        }
+      }
+
       setLoading(false);
     })();
     return () => {
