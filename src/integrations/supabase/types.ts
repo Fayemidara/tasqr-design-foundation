@@ -424,6 +424,8 @@ export type Database = {
           amount: number
           buyer_id: string
           created_at: string
+          dispute_window_closed: boolean
+          dispute_window_ends: string | null
           hold_until: string | null
           id: string
           paystack_reference: string | null
@@ -439,6 +441,8 @@ export type Database = {
           amount: number
           buyer_id: string
           created_at?: string
+          dispute_window_closed?: boolean
+          dispute_window_ends?: string | null
           hold_until?: string | null
           id?: string
           paystack_reference?: string | null
@@ -454,6 +458,8 @@ export type Database = {
           amount?: number
           buyer_id?: string
           created_at?: string
+          dispute_window_closed?: boolean
+          dispute_window_ends?: string | null
           hold_until?: string | null
           id?: string
           paystack_reference?: string | null
@@ -493,6 +499,66 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      admin_list_friday_payouts: {
+        Args: never
+        Returns: {
+          airtm_email: string
+          amount: number
+          handle: string
+          seller_id: string
+          transaction_count: number
+        }[]
+      }
+      admin_list_low_reliability: {
+        Args: never
+        Returns: {
+          dispute_rate: number
+          error_rate: number
+          handle: string
+          id: string
+          reliability_score: number
+          timeout_rate: number
+        }[]
+      }
+      admin_list_open_disputes: {
+        Args: never
+        Returns: {
+          agent_name: string
+          buyer_id: string
+          created_at: string
+          id: string
+          reason: string
+          run_id: string
+          transaction_id: string
+        }[]
+      }
+      admin_list_pending_refunds: {
+        Args: never
+        Returns: {
+          amount: number
+          buyer_id: string
+          created_at: string
+          id: string
+          paystack_reference: string
+        }[]
+      }
+      admin_mark_payout_paid: { Args: { _tx_id: string }; Returns: undefined }
+      admin_mark_refund_processed: {
+        Args: { _tx_id: string }
+        Returns: undefined
+      }
+      admin_mark_seller_batch_paid: {
+        Args: { _seller_id: string }
+        Returns: undefined
+      }
+      admin_resolve_dispute: {
+        Args: { _action: string; _dispute_id: string }
+        Returns: undefined
+      }
+      admin_restore_seller_agents: {
+        Args: { _seller_id: string }
+        Returns: undefined
+      }
       calculate_reliability_score: {
         Args: { _seller_id: string }
         Returns: number
@@ -523,6 +589,7 @@ export type Database = {
           isSetofReturn: true
         }
       }
+      is_admin: { Args: never; Returns: boolean }
       is_seller_owner: { Args: { seller_profile_id: string }; Returns: boolean }
       trigger_refund: { Args: { _transaction_id: string }; Returns: undefined }
     }

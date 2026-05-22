@@ -5,6 +5,7 @@ import { Download } from "lucide-react";
 import { AppShell } from "@/components/layout/app-shell";
 import { RequireAuth } from "@/components/auth/require-auth";
 import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/hooks/use-auth";
 import { cn } from "@/lib/utils";
 
 type Run = {
@@ -15,16 +16,33 @@ type Run = {
   error_message: string | null;
   inputs: Record<string, unknown> | null;
   created_at: string;
+  transaction_id: string | null;
+  buyer_id: string;
   agent: { name: string; slug: string | null } | null;
+};
+
+type Tx = {
+  id: string;
+  status: string;
+  dispute_window_ends: string | null;
+  dispute_window_closed: boolean | null;
 };
 
 const LABEL = "font-mono text-[11px] uppercase tracking-[0.05em] text-muted-foreground";
 
 function RunDetail({ id }: { id: string }) {
+  const { user } = useAuth();
   const [run, setRun] = useState<Run | null>(null);
+  const [tx, setTx] = useState<Tx | null>(null);
+  const [existingDispute, setExistingDispute] = useState(false);
   const [loading, setLoading] = useState(true);
   const [signedUrl, setSignedUrl] = useState<string | null>(null);
   const [outputExpired, setOutputExpired] = useState(false);
+
+  const [showForm, setShowForm] = useState(false);
+  const [reason, setReason] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+  const [submitted, setSubmitted] = useState(false);
 
   useEffect(() => {
     (async () => {
@@ -32,14 +50,31 @@ function RunDetail({ id }: { id: string }) {
       const { data } = await supabase
         .from("runs")
         .select(
-          "id,status,output,output_type,error_message,inputs,created_at,agent:agents(name,slug)",
+          "id,status,output,output_type,error_message,inputs,created_at,transaction_id,buyer_id,agent:agents(name,slug)",
         )
         .eq("id", id)
         .maybeSingle();
       const r = (data as unknown as Run) ?? null;
       setRun(r);
 
-      // For cached file outputs, regenerate a fresh signed URL from run-outputs.
+      if (r?.transaction_id) {
+        const { data: t } = await supabase
+          .from("transactions")
+          .select("id,status,dispute_window_ends,dispute_window_closed")
+          .eq("id", r.transaction_id)
+          .maybeSingle();
+        setTx((t as Tx) ?? null);
+      }
+
+      if (r) {
+        const { data: d } = await supabase
+          .from("disputes")
+          .select("id")
+          .eq("run_id", r.id)
+          .maybeSingle();
+        if (d) setExistingDispute(true);
+      }
+
       if (
         r &&
         r.status === "success" &&
@@ -59,6 +94,37 @@ function RunDetail({ id }: { id: string }) {
       setLoading(false);
     })();
   }, [id]);
+
+  const windowOpen =
+    !!tx &&
+    !tx.dispute_window_closed &&
+    !!tx.dispute_window_ends &&
+    new Date(tx.dispute_window_ends).getTime() > Date.now();
+
+  const canRaise = windowOpen && !existingDispute && !submitted;
+
+  const submitDispute = async () => {
+    if (!run || !user || !tx) return;
+    if (!reason.trim()) return;
+    setSubmitting(true);
+    const { error: dErr } = await supabase.from("disputes").insert({
+      run_id: run.id,
+      buyer_id: user.id,
+      reason: reason.trim(),
+      status: "open",
+    });
+    if (dErr) {
+      setSubmitting(false);
+      return;
+    }
+    await supabase
+      .from("transactions")
+      .update({ status: "disputed", dispute_window_closed: true })
+      .eq("id", tx.id);
+    setSubmitting(false);
+    setSubmitted(true);
+    setShowForm(false);
+  };
 
   if (loading) {
     return (
@@ -139,6 +205,62 @@ function RunDetail({ id }: { id: string }) {
             >
               <Download className="h-4 w-4" /> Download Document
             </a>
+          )}
+        </section>
+      )}
+
+      {run.status === "success" && (
+        <section className="space-y-3 pt-2">
+          {submitted || existingDispute ? (
+            <p className="font-sans text-sm text-muted-foreground">
+              Your dispute has been submitted. We will review it within 24 hours.
+            </p>
+          ) : (
+            <>
+              {canRaise && !showForm && (
+                <button
+                  onClick={() => setShowForm(true)}
+                  className="font-sans text-sm text-muted-foreground hover:text-foreground underline underline-offset-2"
+                >
+                  Not satisfied with this result? Raise a dispute
+                </button>
+              )}
+              {canRaise && showForm && (
+                <div className="bg-surface-raised border border-border rounded-[4px] p-5 space-y-3">
+                  <div className={LABEL}>Raise a dispute</div>
+                  <textarea
+                    value={reason}
+                    onChange={(e) => setReason(e.target.value)}
+                    placeholder="Describe what went wrong with this result"
+                    rows={4}
+                    className="w-full bg-background border border-border rounded-[4px] px-3 py-2 font-sans text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-primary"
+                  />
+                  <div className="flex items-center gap-3">
+                    <button
+                      onClick={submitDispute}
+                      disabled={submitting || !reason.trim()}
+                      className={cn(
+                        "font-mono text-sm px-4 py-2 rounded-[4px]",
+                        reason.trim() && !submitting
+                          ? "bg-primary text-primary-foreground hover:bg-primary/90"
+                          : "bg-muted text-muted-foreground cursor-not-allowed",
+                      )}
+                    >
+                      {submitting ? "Submitting…" : "Submit Dispute"}
+                    </button>
+                    <button
+                      onClick={() => {
+                        setShowForm(false);
+                        setReason("");
+                      }}
+                      className="font-mono text-xs text-muted-foreground hover:text-foreground"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </div>
+              )}
+            </>
           )}
         </section>
       )}

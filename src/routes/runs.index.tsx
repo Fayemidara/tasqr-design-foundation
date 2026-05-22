@@ -10,7 +10,15 @@ type Row = {
   id: string;
   status: string;
   created_at: string;
+  transaction_id: string | null;
   agent: { name: string; slug: string | null } | null;
+  transaction:
+    | {
+        status: string;
+        dispute_window_ends: string | null;
+        dispute_window_closed: boolean | null;
+      }
+    | null;
 };
 
 type SubRow = {
@@ -47,6 +55,35 @@ function StatusBadge({ status }: { status: string }) {
   );
 }
 
+const SAFETY_ORANGE = "#F4511E";
+
+function DisputeWindow({ row }: { row: Row }) {
+  if (row.status !== "success") return null;
+  const tx = row.transaction;
+  if (!tx) return null;
+  if (tx.status === "disputed") {
+    return (
+      <span
+        className="font-mono text-[10px] uppercase tracking-[0.05em] px-2 py-0.5 rounded-[4px]"
+        style={{ backgroundColor: SAFETY_ORANGE, color: "white" }}
+      >
+        Disputed
+      </span>
+    );
+  }
+  const ends = tx.dispute_window_ends ? new Date(tx.dispute_window_ends).getTime() : 0;
+  const open = !tx.dispute_window_closed && ends > Date.now();
+  if (open) {
+    const hours = Math.max(1, Math.ceil((ends - Date.now()) / (1000 * 60 * 60)));
+    return (
+      <span className="font-mono text-[11px] text-muted-foreground">
+        Dispute window closes in {hours} hour{hours === 1 ? "" : "s"}
+      </span>
+    );
+  }
+  return <span className="font-mono text-[11px] text-muted-foreground">Settled</span>;
+}
+
 function MyRuns() {
   const { user } = useAuth();
   const [rows, setRows] = useState<Row[] | null>(null);
@@ -57,7 +94,9 @@ function MyRuns() {
     (async () => {
       const { data } = await supabase
         .from("runs")
-        .select("id,status,created_at,agent:agents(name,slug)")
+        .select(
+          "id,status,created_at,transaction_id,agent:agents(name,slug),transaction:transactions(status,dispute_window_ends,dispute_window_closed)",
+        )
         .eq("buyer_id", user.id)
         .order("created_at", { ascending: false });
       setRows((data as unknown as Row[]) ?? []);
@@ -185,6 +224,9 @@ function MyRuns() {
                 <th className="px-5 py-3 font-mono text-[11px] uppercase tracking-[0.05em] text-muted-foreground">
                   Date
                 </th>
+                <th className="px-5 py-3 font-mono text-[11px] uppercase tracking-[0.05em] text-muted-foreground">
+                  Dispute
+                </th>
                 <th className="px-5 py-3" />
               </tr>
             </thead>
@@ -211,6 +253,9 @@ function MyRuns() {
                   </td>
                   <td className="px-5 py-3 font-mono text-xs text-muted-foreground">
                     {new Date(r.created_at).toLocaleString()}
+                  </td>
+                  <td className="px-5 py-3">
+                    <DisputeWindow row={r} />
                   </td>
                   <td className="px-5 py-3 text-right">
                     <Link

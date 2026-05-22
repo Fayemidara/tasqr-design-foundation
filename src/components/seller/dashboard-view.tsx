@@ -73,6 +73,28 @@ function StatusBadge({ status }: { status: string }) {
   );
 }
 
+function DisputeStatusBadge({ status }: { status: string }) {
+  const map: Record<string, { label: string; style: React.CSSProperties; cls: string }> = {
+    open: { label: "Open", style: { backgroundColor: "#F4511E", color: "white" }, cls: "" },
+    resolved: { label: "Resolved", style: { backgroundColor: "#1F3A93", color: "white" }, cls: "" },
+    rejected: { label: "Rejected", style: {}, cls: "bg-muted text-muted-foreground" },
+  };
+  const v = map[status] ?? map.open;
+  return (
+    <span
+      className={cn(
+        "inline-flex items-center font-mono text-[10px] uppercase tracking-[0.05em] px-2 py-0.5 rounded-[4px]",
+        v.cls,
+      )}
+      style={v.style}
+    >
+      {v.label}
+    </span>
+  );
+}
+
+
+
 function formatPrice(a: Agent) {
   const parts: string[] = [];
   if (a.one_time_price != null && Number(a.one_time_price) > 0)
@@ -88,6 +110,9 @@ export function SellerDashboardView() {
   const [profile, setProfile] = useState<SellerProfile | null>(null);
   const [agents, setAgents] = useState<Agent[]>([]);
   const [refundCount, setRefundCount] = useState<number>(0);
+  const [disputes, setDisputes] = useState<
+    { id: string; created_at: string; status: string; agent_name: string }[]
+  >([]);
   const [metrics, setMetrics] = useState({
     timeoutRate: 0,
     errorRate: 0,
@@ -154,6 +179,26 @@ export function SellerDashboardView() {
               disputeRate: (disputes / total) * 100,
             });
           }
+        }
+      }
+
+      // Open disputes against this seller's agents
+      if (agentIds.length > 0) {
+        const { data: openDisputes } = await supabase
+          .from("disputes")
+          .select("id,created_at,status,run:runs!inner(agent_id,agent:agents(name))")
+          .eq("status", "open")
+          .in("run.agent_id", agentIds)
+          .order("created_at", { ascending: false });
+        if (!cancelled && openDisputes) {
+          setDisputes(
+            (openDisputes as any[]).map((d) => ({
+              id: d.id,
+              created_at: d.created_at,
+              status: d.status,
+              agent_name: d.run?.agent?.name ?? "—",
+            })),
+          );
         }
       }
 
@@ -356,6 +401,51 @@ export function SellerDashboardView() {
           </p>
           <p className="text-xs text-muted-foreground font-sans">
             Score updates automatically after each run
+          </p>
+        </Card>
+      </section>
+
+      {/* Open Disputes */}
+      <section className="space-y-3">
+        <div className={LABEL}>Open Disputes</div>
+        <Card className="p-5 space-y-3">
+          {loading ? (
+            <Skel className="h-10 w-full" />
+          ) : disputes.length === 0 ? (
+            <p className="font-sans text-sm text-muted-foreground">No open disputes.</p>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-border">
+                    {["Agent", "Date Raised", "Status"].map((h) => (
+                      <th
+                        key={h}
+                        className="text-left px-4 py-2 font-mono text-[11px] uppercase tracking-[0.05em] text-muted-foreground"
+                      >
+                        {h}
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {disputes.map((d) => (
+                    <tr key={d.id} className="border-b border-border last:border-0">
+                      <td className="px-4 py-3 font-mono text-foreground">{d.agent_name}</td>
+                      <td className="px-4 py-3 font-mono text-xs text-muted-foreground">
+                        {new Date(d.created_at).toLocaleDateString()}
+                      </td>
+                      <td className="px-4 py-3">
+                        <DisputeStatusBadge status={d.status} />
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+          <p className="font-sans text-xs text-muted-foreground">
+            Disputes are reviewed and resolved by Tasqr within 24 hours.
           </p>
         </Card>
       </section>

@@ -495,6 +495,14 @@ function RunNewInner() {
         },
         { kind: "success", output: displayOutput, output_type: ot },
       );
+      // Open the 48-hour dispute window on the purchase transaction.
+      if (transactionId) {
+        const ends = new Date(Date.now() + 48 * 60 * 60 * 1000).toISOString();
+        await supabase
+          .from("transactions")
+          .update({ dispute_window_ends: ends, dispute_window_closed: false })
+          .eq("id", transactionId);
+      }
       return;
     }
 
