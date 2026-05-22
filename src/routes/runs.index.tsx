@@ -72,6 +72,16 @@ function MyRuns() {
     })();
     (async () => {
       const { data } = await supabase
+        .from("runs")
+        .select(
+          "id,status,created_at,transaction_id,agent:agents(name,slug),transaction:transactions(status,dispute_window_ends,dispute_window_closed)",
+        )
+        .eq("buyer_id", user.id)
+        .order("created_at", { ascending: false });
+      setRows((data as unknown as Row[]) ?? []);
+    })();
+    (async () => {
+      const { data } = await supabase
         .from("subscriptions")
         .select("id,status,current_period_end,agent:agents(name,slug)")
         .eq("buyer_id", user.id)
