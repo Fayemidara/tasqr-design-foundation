@@ -10,7 +10,15 @@ type Row = {
   id: string;
   status: string;
   created_at: string;
+  transaction_id: string | null;
   agent: { name: string; slug: string | null } | null;
+  transaction:
+    | {
+        status: string;
+        dispute_window_ends: string | null;
+        dispute_window_closed: boolean | null;
+      }
+    | null;
 };
 
 type SubRow = {
