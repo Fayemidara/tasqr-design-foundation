@@ -224,6 +224,9 @@ function MyRuns() {
                 <th className="px-5 py-3 font-mono text-[11px] uppercase tracking-[0.05em] text-muted-foreground">
                   Date
                 </th>
+                <th className="px-5 py-3 font-mono text-[11px] uppercase tracking-[0.05em] text-muted-foreground">
+                  Dispute
+                </th>
                 <th className="px-5 py-3" />
               </tr>
             </thead>
