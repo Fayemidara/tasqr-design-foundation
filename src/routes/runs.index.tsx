@@ -55,6 +55,35 @@ function StatusBadge({ status }: { status: string }) {
   );
 }
 
+const SAFETY_ORANGE = "#F4511E";
+
+function DisputeWindow({ row }: { row: Row }) {
+  if (row.status !== "success") return null;
+  const tx = row.transaction;
+  if (!tx) return null;
+  if (tx.status === "disputed") {
+    return (
+      <span
+        className="font-mono text-[10px] uppercase tracking-[0.05em] px-2 py-0.5 rounded-[4px]"
+        style={{ backgroundColor: SAFETY_ORANGE, color: "white" }}
+      >
+        Disputed
+      </span>
+    );
+  }
+  const ends = tx.dispute_window_ends ? new Date(tx.dispute_window_ends).getTime() : 0;
+  const open = !tx.dispute_window_closed && ends > Date.now();
+  if (open) {
+    const hours = Math.max(1, Math.ceil((ends - Date.now()) / (1000 * 60 * 60)));
+    return (
+      <span className="font-mono text-[11px] text-muted-foreground">
+        Dispute window closes in {hours} hour{hours === 1 ? "" : "s"}
+      </span>
+    );
+  }
+  return <span className="font-mono text-[11px] text-muted-foreground">Settled</span>;
+}
+
 function MyRuns() {
   const { user } = useAuth();
   const [rows, setRows] = useState<Row[] | null>(null);
