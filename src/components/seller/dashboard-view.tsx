@@ -73,6 +73,25 @@ function StatusBadge({ status }: { status: string }) {
   );
 }
 
+function DisputeStatusBadge({ status }: { status: string }) {
+  const map: Record<string, { label: string; style: React.CSSProperties; cls: string }> = {
+    open: { label: "Open", style: { backgroundColor: "#F4511E", color: "white" }, cls: "" },
+    resolved: { label: "Resolved", style: { backgroundColor: "#1F3A93", color: "white" }, cls: "" },
+    rejected: { label: "Rejected", style: {}, cls: "bg-muted text-muted-foreground" },
+  };
+  const v = map[status] ?? map.open;
+  return (
+    <span
+      className={cn(
+        "inline-flex items-center font-mono text-[10px] uppercase tracking-[0.05em] px-2 py-0.5 rounded-[4px]",
+        v.cls,
+      )}
+      style={v.style}
+    >
+      {v.label}
+    </span>
+  );
+
 function formatPrice(a: Agent) {
   const parts: string[] = [];
   if (a.one_time_price != null && Number(a.one_time_price) > 0)
