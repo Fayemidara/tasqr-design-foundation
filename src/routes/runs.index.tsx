@@ -222,6 +222,9 @@ function MyRuns() {
                   <td className="px-5 py-3 font-mono text-xs text-muted-foreground">
                     {new Date(r.created_at).toLocaleString()}
                   </td>
+                  <td className="px-5 py-3">
+                    <DisputeWindow row={r} />
+                  </td>
                   <td className="px-5 py-3 text-right">
                     <Link
                       to="/runs/$id"
