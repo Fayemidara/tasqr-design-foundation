@@ -382,6 +382,51 @@ export function SellerDashboardView() {
           </p>
         </Card>
       </section>
+
+      {/* Open Disputes */}
+      <section className="space-y-3">
+        <div className={LABEL}>Open Disputes</div>
+        <Card className="p-5 space-y-3">
+          {loading ? (
+            <Skel className="h-10 w-full" />
+          ) : disputes.length === 0 ? (
+            <p className="font-sans text-sm text-muted-foreground">No open disputes.</p>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-border">
+                    {["Agent", "Date Raised", "Status"].map((h) => (
+                      <th
+                        key={h}
+                        className="text-left px-4 py-2 font-mono text-[11px] uppercase tracking-[0.05em] text-muted-foreground"
+                      >
+                        {h}
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {disputes.map((d) => (
+                    <tr key={d.id} className="border-b border-border last:border-0">
+                      <td className="px-4 py-3 font-mono text-foreground">{d.agent_name}</td>
+                      <td className="px-4 py-3 font-mono text-xs text-muted-foreground">
+                        {new Date(d.created_at).toLocaleDateString()}
+                      </td>
+                      <td className="px-4 py-3">
+                        <DisputeStatusBadge status={d.status} />
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+          <p className="font-sans text-xs text-muted-foreground">
+            Disputes are reviewed and resolved by Tasqr within 24 hours.
+          </p>
+        </Card>
+      </section>
     </div>
   );
 }
