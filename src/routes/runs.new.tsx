@@ -139,6 +139,17 @@ function RunNewInner() {
   const [reviewText, setReviewText] = useState("");
   const [reviewState, setReviewState] = useState<"prompt" | "submitted" | "skipped">("prompt");
 
+  // dispute UI
+  const [disputeTx, setDisputeTx] = useState<{
+    id: string;
+    dispute_window_ends: string | null;
+    dispute_window_closed: boolean;
+  } | null>(null);
+  const [disputeShow, setDisputeShow] = useState(false);
+  const [disputeReason, setDisputeReason] = useState("");
+  const [disputeSubmitting, setDisputeSubmitting] = useState(false);
+  const [disputeSubmitted, setDisputeSubmitted] = useState(false);
+
   useEffect(() => {
     let cancelled = false;
     (async () => {
@@ -496,12 +507,29 @@ function RunNewInner() {
         { kind: "success", output: displayOutput, output_type: ot },
       );
       // Open the 48-hour dispute window on the purchase transaction.
-      if (transactionId) {
+      // One-time purchases: use transactionId.
+      // Subscription runs: resolve transaction via subscriptions.transaction_id
+      // so every successful subscription run also opens a fresh window.
+      let disputeTxId: string | null = transactionId;
+      if (!disputeTxId && subscriptionId) {
+        const { data: sub } = await supabase
+          .from("subscriptions")
+          .select("transaction_id")
+          .eq("id", subscriptionId)
+          .maybeSingle();
+        disputeTxId = (sub?.transaction_id as string | null) ?? null;
+      }
+      if (disputeTxId) {
         const ends = new Date(Date.now() + 48 * 60 * 60 * 1000).toISOString();
         await supabase
           .from("transactions")
           .update({ dispute_window_ends: ends, dispute_window_closed: false })
-          .eq("id", transactionId);
+          .eq("id", disputeTxId);
+        setDisputeTx({
+          id: disputeTxId,
+          dispute_window_ends: ends,
+          dispute_window_closed: false,
+        });
       }
       return;
     }
@@ -566,6 +594,36 @@ function RunNewInner() {
     });
     setReviewState("submitted");
   };
+
+  const submitDispute = async () => {
+    if (!user || !runId || !disputeTx) return;
+    if (!disputeReason.trim()) return;
+    setDisputeSubmitting(true);
+    const { error: dErr } = await supabase.from("disputes").insert({
+      run_id: runId,
+      buyer_id: user.id,
+      reason: disputeReason.trim(),
+      status: "open",
+    });
+    if (dErr) {
+      setDisputeSubmitting(false);
+      return;
+    }
+    await supabase
+      .from("transactions")
+      .update({ status: "disputed", dispute_window_closed: true })
+      .eq("id", disputeTx.id);
+    setDisputeSubmitting(false);
+    setDisputeSubmitted(true);
+    setDisputeShow(false);
+    setDisputeTx({ ...disputeTx, dispute_window_closed: true });
+  };
+
+  const disputeWindowOpen =
+    !!disputeTx &&
+    !disputeTx.dispute_window_closed &&
+    !!disputeTx.dispute_window_ends &&
+    new Date(disputeTx.dispute_window_ends).getTime() > Date.now();
 
   if (loading) {
     return (
@@ -852,6 +910,61 @@ function RunNewInner() {
                   <p className="font-sans text-sm text-muted-foreground mt-4">
                     Thanks for your review.
                   </p>
+                )}
+
+                {/* Dispute prompt */}
+                {disputeSubmitted ? (
+                  <p className="font-sans text-sm text-muted-foreground mt-4">
+                    Your dispute has been submitted. We will review it within 24 hours.
+                  </p>
+                ) : (
+                  disputeWindowOpen && (
+                    <div className="mt-4 space-y-3">
+                      {!disputeShow && (
+                        <button
+                          onClick={() => setDisputeShow(true)}
+                          className="font-sans text-sm text-muted-foreground hover:text-foreground underline underline-offset-2"
+                        >
+                          Not satisfied with this result? Raise a dispute
+                        </button>
+                      )}
+                      {disputeShow && (
+                        <div className="bg-surface-raised border border-border rounded-[4px] p-5 space-y-3">
+                          <div className={LABEL}>Raise a dispute</div>
+                          <textarea
+                            value={disputeReason}
+                            onChange={(e) => setDisputeReason(e.target.value)}
+                            placeholder="Describe what went wrong with this result"
+                            rows={4}
+                            className="w-full bg-background border border-border rounded-[4px] px-3 py-2 font-sans text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-primary"
+                          />
+                          <div className="flex items-center gap-3">
+                            <button
+                              onClick={submitDispute}
+                              disabled={disputeSubmitting || !disputeReason.trim()}
+                              className={cn(
+                                "font-mono text-sm px-4 py-2 rounded-[4px]",
+                                disputeReason.trim() && !disputeSubmitting
+                                  ? "bg-primary text-primary-foreground hover:bg-primary/90"
+                                  : "bg-muted text-muted-foreground cursor-not-allowed",
+                              )}
+                            >
+                              {disputeSubmitting ? "Submitting…" : "Submit Dispute"}
+                            </button>
+                            <button
+                              onClick={() => {
+                                setDisputeShow(false);
+                                setDisputeReason("");
+                              }}
+                              className="font-mono text-xs text-muted-foreground hover:text-foreground"
+                            >
+                              Cancel
+                            </button>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )
                 )}
 
                 <div className="pt-2">
