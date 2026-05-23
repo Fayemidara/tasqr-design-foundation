@@ -496,12 +496,29 @@ function RunNewInner() {
         { kind: "success", output: displayOutput, output_type: ot },
       );
       // Open the 48-hour dispute window on the purchase transaction.
-      if (transactionId) {
+      // One-time purchases: use transactionId.
+      // Subscription runs: resolve transaction via subscriptions.transaction_id
+      // so every successful subscription run also opens a fresh window.
+      let disputeTxId: string | null = transactionId;
+      if (!disputeTxId && subscriptionId) {
+        const { data: sub } = await supabase
+          .from("subscriptions")
+          .select("transaction_id")
+          .eq("id", subscriptionId)
+          .maybeSingle();
+        disputeTxId = (sub?.transaction_id as string | null) ?? null;
+      }
+      if (disputeTxId) {
         const ends = new Date(Date.now() + 48 * 60 * 60 * 1000).toISOString();
         await supabase
           .from("transactions")
           .update({ dispute_window_ends: ends, dispute_window_closed: false })
-          .eq("id", transactionId);
+          .eq("id", disputeTxId);
+        setDisputeTx({
+          id: disputeTxId,
+          dispute_window_ends: ends,
+          dispute_window_closed: false,
+        });
       }
       return;
     }
