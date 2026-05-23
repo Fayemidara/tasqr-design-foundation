@@ -139,6 +139,17 @@ function RunNewInner() {
   const [reviewText, setReviewText] = useState("");
   const [reviewState, setReviewState] = useState<"prompt" | "submitted" | "skipped">("prompt");
 
+  // dispute UI
+  const [disputeTx, setDisputeTx] = useState<{
+    id: string;
+    dispute_window_ends: string | null;
+    dispute_window_closed: boolean;
+  } | null>(null);
+  const [disputeShow, setDisputeShow] = useState(false);
+  const [disputeReason, setDisputeReason] = useState("");
+  const [disputeSubmitting, setDisputeSubmitting] = useState(false);
+  const [disputeSubmitted, setDisputeSubmitted] = useState(false);
+
   useEffect(() => {
     let cancelled = false;
     (async () => {
