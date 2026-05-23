@@ -595,6 +595,36 @@ function RunNewInner() {
     setReviewState("submitted");
   };
 
+  const submitDispute = async () => {
+    if (!user || !runId || !disputeTx) return;
+    if (!disputeReason.trim()) return;
+    setDisputeSubmitting(true);
+    const { error: dErr } = await supabase.from("disputes").insert({
+      run_id: runId,
+      buyer_id: user.id,
+      reason: disputeReason.trim(),
+      status: "open",
+    });
+    if (dErr) {
+      setDisputeSubmitting(false);
+      return;
+    }
+    await supabase
+      .from("transactions")
+      .update({ status: "disputed", dispute_window_closed: true })
+      .eq("id", disputeTx.id);
+    setDisputeSubmitting(false);
+    setDisputeSubmitted(true);
+    setDisputeShow(false);
+    setDisputeTx({ ...disputeTx, dispute_window_closed: true });
+  };
+
+  const disputeWindowOpen =
+    !!disputeTx &&
+    !disputeTx.dispute_window_closed &&
+    !!disputeTx.dispute_window_ends &&
+    new Date(disputeTx.dispute_window_ends).getTime() > Date.now();
+
   if (loading) {
     return (
       <div className="max-w-7xl mx-auto px-8 py-10">
