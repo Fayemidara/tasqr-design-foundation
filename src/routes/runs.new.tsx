@@ -912,6 +912,61 @@ function RunNewInner() {
                   </p>
                 )}
 
+                {/* Dispute prompt */}
+                {disputeSubmitted ? (
+                  <p className="font-sans text-sm text-muted-foreground mt-4">
+                    Your dispute has been submitted. We will review it within 24 hours.
+                  </p>
+                ) : (
+                  disputeWindowOpen && (
+                    <div className="mt-4 space-y-3">
+                      {!disputeShow && (
+                        <button
+                          onClick={() => setDisputeShow(true)}
+                          className="font-sans text-sm text-muted-foreground hover:text-foreground underline underline-offset-2"
+                        >
+                          Not satisfied with this result? Raise a dispute
+                        </button>
+                      )}
+                      {disputeShow && (
+                        <div className="bg-surface-raised border border-border rounded-[4px] p-5 space-y-3">
+                          <div className={LABEL}>Raise a dispute</div>
+                          <textarea
+                            value={disputeReason}
+                            onChange={(e) => setDisputeReason(e.target.value)}
+                            placeholder="Describe what went wrong with this result"
+                            rows={4}
+                            className="w-full bg-background border border-border rounded-[4px] px-3 py-2 font-sans text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-primary"
+                          />
+                          <div className="flex items-center gap-3">
+                            <button
+                              onClick={submitDispute}
+                              disabled={disputeSubmitting || !disputeReason.trim()}
+                              className={cn(
+                                "font-mono text-sm px-4 py-2 rounded-[4px]",
+                                disputeReason.trim() && !disputeSubmitting
+                                  ? "bg-primary text-primary-foreground hover:bg-primary/90"
+                                  : "bg-muted text-muted-foreground cursor-not-allowed",
+                              )}
+                            >
+                              {disputeSubmitting ? "Submitting…" : "Submit Dispute"}
+                            </button>
+                            <button
+                              onClick={() => {
+                                setDisputeShow(false);
+                                setDisputeReason("");
+                              }}
+                              className="font-mono text-xs text-muted-foreground hover:text-foreground"
+                            >
+                              Cancel
+                            </button>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )
+                )}
+
                 <div className="pt-2">
                   <Link
                     to="/runs"
