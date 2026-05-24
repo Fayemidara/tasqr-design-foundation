@@ -563,6 +563,26 @@ export type Database = {
         Args: { _seller_id: string }
         Returns: number
       }
+      cancel_subscription: { Args: { _sub_id: string }; Returns: undefined }
+      cancel_transaction: { Args: { _tx_id: string }; Returns: undefined }
+      complete_run: {
+        Args: {
+          _error_code?: string
+          _error_message?: string
+          _files?: Json
+          _output?: string
+          _output_type?: string
+          _processing_time_ms?: number
+          _run_id: string
+          _status: string
+          _subscription_id?: string
+        }
+        Returns: undefined
+      }
+      confirm_transaction: {
+        Args: { _paystack_reference: string; _tx_id: string }
+        Returns: undefined
+      }
       get_agent_api_key_prefix: { Args: { _agent_id: string }; Returns: string }
       get_my_seller_profile: {
         Args: never
@@ -589,8 +609,32 @@ export type Database = {
           isSetofReturn: true
         }
       }
+      get_seller_open_disputes: {
+        Args: never
+        Returns: {
+          agent_name: string
+          created_at: string
+          id: string
+          status: string
+        }[]
+      }
+      get_seller_run_metrics: {
+        Args: { _seller_id: string }
+        Returns: {
+          dispute_count: number
+          error_count: number
+          malformed_count: number
+          timeout_count: number
+          total_runs: number
+        }[]
+      }
       is_admin: { Args: never; Returns: boolean }
+      is_seller_dispute: { Args: { _run_id: string }; Returns: boolean }
       is_seller_owner: { Args: { seller_profile_id: string }; Returns: boolean }
+      raise_dispute: {
+        Args: { _reason: string; _run_id: string }
+        Returns: string
+      }
       trigger_refund: { Args: { _transaction_id: string }; Returns: undefined }
     }
     Enums: {
