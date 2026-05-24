@@ -294,7 +294,35 @@ function AdminInner() {
                       <td className="px-4 py-3 font-mono text-foreground">${Number(p.amount).toFixed(2)}</td>
                       <td className="px-4 py-3 font-mono text-xs text-muted-foreground">{p.transaction_count}</td>
                       <td className="px-4 py-3">
-                        <Btn onClick={() => markSellerPaid(p.seller_id)}>Mark Paid</Btn>
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <Btn onClick={() => markSellerPaid(p.seller_id)}>Mark Paid</Btn>
+                          {p.airtm_email ? (() => {
+                            const st = emailState[p.seller_id] ?? "idle";
+                            const label = st === "sending" ? "Sending..." : st === "sent" ? "Sent ✓" : "Send Email";
+                            return (
+                              <div className="flex flex-col gap-1">
+                                <button
+                                  onClick={() => sendPayoutEmailFor(p)}
+                                  disabled={st === "sending" || st === "sent"}
+                                  className={cn(
+                                    "font-mono text-xs px-3 py-1.5 rounded-[4px] border border-border",
+                                    st === "sent" && "cursor-not-allowed",
+                                    st === "sending" && "opacity-60 cursor-wait",
+                                    st !== "sent" && st !== "sending" && "text-foreground hover:bg-white/5",
+                                  )}
+                                  style={st === "sent" ? { color: "#3B82F6", borderColor: "#3B82F6" } : undefined}
+                                >
+                                  {label}
+                                </button>
+                                {st === "error" && (
+                                  <span className="font-mono text-[11px]" style={{ color: SAFETY_ORANGE }}>
+                                    Email failed to send. Try again.
+                                  </span>
+                                )}
+                              </div>
+                            );
+                          })() : null}
+                        </div>
                       </td>
                     </tr>
                   ))}
