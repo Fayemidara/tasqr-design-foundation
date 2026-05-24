@@ -405,7 +405,17 @@ function RunNewInner() {
       execState: ExecState,
       refund = false,
     ) => {
-      await supabase.from("runs").update(patch).eq("id", inserted.id);
+      await (supabase as any).rpc("complete_run", {
+        _run_id: inserted.id,
+        _status: patch.status,
+        _output: patch.output ?? null,
+        _output_type: patch.output_type ?? null,
+        _error_message: patch.error_message ?? null,
+        _error_code: patch.error_code ?? null,
+        _processing_time_ms: patch.processing_time_ms ?? null,
+        _files: (patch.files as never) ?? null,
+        _subscription_id: subscriptionId ?? null,
+      });
       if (refund) await refundIfNeeded();
       // Recalculate seller reliability score after every final run status.
       const finalStatuses = ["success", "timeout", "unreachable", "error", "malformed"];
