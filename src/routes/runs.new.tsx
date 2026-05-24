@@ -426,6 +426,10 @@ function RunNewInner() {
         await supabase.rpc("calculate_reliability_score", {
           _seller_id: agent.seller_id,
         });
+        // Non-blocking: notify seller if score dropped below 50 and agents were paused.
+        notifyPaused({ data: { seller_id: agent.seller_id } }).catch((e) =>
+          console.error("agent-paused email failed", e),
+        );
       }
       setExec(execState);
       await cleanupUploads();
