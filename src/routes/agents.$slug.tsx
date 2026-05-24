@@ -312,20 +312,19 @@ function AgentDetailInner({ slug }: { slug: string }) {
           buyer_id: user.id,
         },
         callback: function(response: { reference: string }) {
-          supabase
-            .from("transactions")
-            .update({ status: "held", paystack_reference: response.reference })
-            .eq("id", transactionId)
+          (supabase as any)
+            .rpc("confirm_transaction", {
+              _tx_id: transactionId,
+              _paystack_reference: response.reference,
+            })
             .then(() => {
               setPaying(false);
               goToRun(transactionId);
             });
         },
         onClose: function() {
-          supabase
-            .from("transactions")
-            .update({ status: "cancelled" })
-            .eq("id", transactionId)
+          (supabase as any)
+            .rpc("cancel_transaction", { _tx_id: transactionId })
             .then(() => {
               setPaying(false);
               setPayMessage("Payment cancelled.");
