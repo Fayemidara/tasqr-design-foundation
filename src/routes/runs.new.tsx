@@ -619,6 +619,10 @@ function RunNewInner() {
     setDisputeSubmitted(true);
     setDisputeShow(false);
     setDisputeTx({ ...disputeTx, dispute_window_closed: true });
+    // Non-blocking dispute email; failures silent.
+    notifyDispute({ data: { run_id: runId, dispute_reason: disputeReason.trim(), buyer_id: user.id } }).catch(
+      (e) => console.error("dispute email failed", e),
+    );
   };
 
   const disputeWindowOpen =
