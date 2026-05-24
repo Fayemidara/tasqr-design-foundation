@@ -10,6 +10,7 @@ import type { Database } from "@/integrations/supabase/types";
 import { useAuth } from "@/hooks/use-auth";
 import { cn } from "@/lib/utils";
 import { cacheRunOutput, getAgentApiKey } from "@/lib/runs.functions";
+import { notifyDisputeForRun, notifyIfAgentsPaused } from "@/lib/email.functions";
 
 type InputField = {
   field_name: string;
