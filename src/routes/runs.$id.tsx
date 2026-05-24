@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { createFileRoute, Link } from "@tanstack/react-router";
+import { useServerFn } from "@tanstack/react-start";
 import ReactMarkdown from "react-markdown";
 import { Download } from "lucide-react";
 import { AppShell } from "@/components/layout/app-shell";
@@ -7,6 +8,7 @@ import { RequireAuth } from "@/components/auth/require-auth";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
 import { cn } from "@/lib/utils";
+import { notifyDisputeForRun } from "@/lib/email.functions";
 
 type Run = {
   id: string;
