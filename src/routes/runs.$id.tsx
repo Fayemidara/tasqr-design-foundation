@@ -107,21 +107,12 @@ function RunDetail({ id }: { id: string }) {
     if (!run || !user || !tx) return;
     if (!reason.trim()) return;
     setSubmitting(true);
-    const { error: dErr } = await supabase.from("disputes").insert({
-      run_id: run.id,
-      buyer_id: user.id,
-      reason: reason.trim(),
-      status: "open",
+    const { error: dErr } = await (supabase as any).rpc("raise_dispute", {
+      _run_id: run.id,
+      _reason: reason.trim(),
     });
-    if (dErr) {
-      setSubmitting(false);
-      return;
-    }
-    await supabase
-      .from("transactions")
-      .update({ status: "disputed", dispute_window_closed: true })
-      .eq("id", tx.id);
     setSubmitting(false);
+    if (dErr) return;
     setSubmitted(true);
     setShowForm(false);
   };

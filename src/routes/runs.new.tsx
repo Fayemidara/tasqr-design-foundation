@@ -405,7 +405,17 @@ function RunNewInner() {
       execState: ExecState,
       refund = false,
     ) => {
-      await supabase.from("runs").update(patch).eq("id", inserted.id);
+      await (supabase as any).rpc("complete_run", {
+        _run_id: inserted.id,
+        _status: patch.status,
+        _output: patch.output ?? null,
+        _output_type: patch.output_type ?? null,
+        _error_message: patch.error_message ?? null,
+        _error_code: patch.error_code ?? null,
+        _processing_time_ms: patch.processing_time_ms ?? null,
+        _files: (patch.files as never) ?? null,
+        _subscription_id: subscriptionId ?? null,
+      });
       if (refund) await refundIfNeeded();
       // Recalculate seller reliability score after every final run status.
       const finalStatuses = ["success", "timeout", "unreachable", "error", "malformed"];
@@ -506,10 +516,8 @@ function RunNewInner() {
         },
         { kind: "success", output: displayOutput, output_type: ot },
       );
-      // Open the 48-hour dispute window on the purchase transaction.
-      // One-time purchases: use transactionId.
-      // Subscription runs: resolve transaction via subscriptions.transaction_id
-      // so every successful subscription run also opens a fresh window.
+      // The 48-hour dispute window was opened by complete_run() server-side.
+      // Resolve the tx id for local UI state.
       let disputeTxId: string | null = transactionId;
       if (!disputeTxId && subscriptionId) {
         const { data: sub } = await supabase
@@ -521,10 +529,6 @@ function RunNewInner() {
       }
       if (disputeTxId) {
         const ends = new Date(Date.now() + 48 * 60 * 60 * 1000).toISOString();
-        await supabase
-          .from("transactions")
-          .update({ dispute_window_ends: ends, dispute_window_closed: false })
-          .eq("id", disputeTxId);
         setDisputeTx({
           id: disputeTxId,
           dispute_window_ends: ends,
@@ -599,21 +603,12 @@ function RunNewInner() {
     if (!user || !runId || !disputeTx) return;
     if (!disputeReason.trim()) return;
     setDisputeSubmitting(true);
-    const { error: dErr } = await supabase.from("disputes").insert({
-      run_id: runId,
-      buyer_id: user.id,
-      reason: disputeReason.trim(),
-      status: "open",
+    const { error: dErr } = await (supabase as any).rpc("raise_dispute", {
+      _run_id: runId,
+      _reason: disputeReason.trim(),
     });
-    if (dErr) {
-      setDisputeSubmitting(false);
-      return;
-    }
-    await supabase
-      .from("transactions")
-      .update({ status: "disputed", dispute_window_closed: true })
-      .eq("id", disputeTx.id);
     setDisputeSubmitting(false);
+    if (dErr) return;
     setDisputeSubmitted(true);
     setDisputeShow(false);
     setDisputeTx({ ...disputeTx, dispute_window_closed: true });

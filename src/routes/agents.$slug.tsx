@@ -312,20 +312,19 @@ function AgentDetailInner({ slug }: { slug: string }) {
           buyer_id: user.id,
         },
         callback: function(response: { reference: string }) {
-          supabase
-            .from("transactions")
-            .update({ status: "held", paystack_reference: response.reference })
-            .eq("id", transactionId)
+          (supabase as any)
+            .rpc("confirm_transaction", {
+              _tx_id: transactionId,
+              _paystack_reference: response.reference,
+            })
             .then(() => {
               setPaying(false);
               goToRun(transactionId);
             });
         },
         onClose: function() {
-          supabase
-            .from("transactions")
-            .update({ status: "cancelled" })
-            .eq("id", transactionId)
+          (supabase as any)
+            .rpc("cancel_transaction", { _tx_id: transactionId })
             .then(() => {
               setPaying(false);
               setPayMessage("Payment cancelled.");
@@ -424,10 +423,10 @@ function AgentDetailInner({ slug }: { slug: string }) {
         },
         callback: function (response: { reference: string }) {
           (async () => {
-            await supabase
-              .from("transactions")
-              .update({ status: "held", paystack_reference: response.reference })
-              .eq("id", transactionId);
+            await (supabase as any).rpc("confirm_transaction", {
+              _tx_id: transactionId,
+              _paystack_reference: response.reference,
+            });
             const now = new Date();
             const end = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
             const { data: subRow } = await supabase
@@ -455,10 +454,8 @@ function AgentDetailInner({ slug }: { slug: string }) {
           })();
         },
         onClose: function () {
-          supabase
-            .from("transactions")
-            .update({ status: "cancelled" })
-            .eq("id", transactionId)
+          (supabase as any)
+            .rpc("cancel_transaction", { _tx_id: transactionId })
             .then(() => {
               setPaying(false);
               setPayMessage("Payment cancelled.");
@@ -476,10 +473,9 @@ function AgentDetailInner({ slug }: { slug: string }) {
 
   const handleCancelSubscription = async () => {
     if (!activeSubscription) return;
-    const { error } = await supabase
-      .from("subscriptions")
-      .update({ status: "cancelled" })
-      .eq("id", activeSubscription.id);
+    const { error } = await (supabase as any).rpc("cancel_subscription", {
+      _sub_id: activeSubscription.id,
+    });
     if (!error) {
       setPayMessage(
         `Subscription cancelled. You retain access until ${new Date(activeSubscription.current_period_end).toLocaleDateString()}.`,
