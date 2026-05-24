@@ -180,8 +180,7 @@ export function SellerDashboardView() {
               status: d.status,
               agent_name: d.agent_name ?? "—",
             })),
-          );
-        }
+        );
       }
 
       setLoading(false);
