@@ -603,21 +603,12 @@ function RunNewInner() {
     if (!user || !runId || !disputeTx) return;
     if (!disputeReason.trim()) return;
     setDisputeSubmitting(true);
-    const { error: dErr } = await supabase.from("disputes").insert({
-      run_id: runId,
-      buyer_id: user.id,
-      reason: disputeReason.trim(),
-      status: "open",
+    const { error: dErr } = await (supabase as any).rpc("raise_dispute", {
+      _run_id: runId,
+      _reason: disputeReason.trim(),
     });
-    if (dErr) {
-      setDisputeSubmitting(false);
-      return;
-    }
-    await supabase
-      .from("transactions")
-      .update({ status: "disputed", dispute_window_closed: true })
-      .eq("id", disputeTx.id);
     setDisputeSubmitting(false);
+    if (dErr) return;
     setDisputeSubmitted(true);
     setDisputeShow(false);
     setDisputeTx({ ...disputeTx, dispute_window_closed: true });
