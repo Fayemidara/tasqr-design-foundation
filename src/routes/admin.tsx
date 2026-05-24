@@ -1,10 +1,12 @@
 import { useEffect, useState } from "react";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { useServerFn } from "@tanstack/react-start";
 import { AppShell } from "@/components/layout/app-shell";
 import { RequireAuth } from "@/components/auth/require-auth";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
 import { cn } from "@/lib/utils";
+import { notifyPayoutSent } from "@/lib/email.functions";
 
 const ADMIN_EMAIL = import.meta.env.VITE_ADMIN_EMAIL as string | undefined;
 const LABEL = "font-mono text-[11px] uppercase tracking-[0.05em] text-muted-foreground";
@@ -60,6 +62,8 @@ function AdminInner() {
   const [pending, setPending] = useState<PendingRefund[] | null>(null);
   const [payouts, setPayouts] = useState<Payout[] | null>(null);
   const [lowRel, setLowRel] = useState<LowRel[] | null>(null);
+  const [emailState, setEmailState] = useState<Record<string, "idle" | "sending" | "sent" | "error">>({});
+  const sendPayout = useServerFn(notifyPayoutSent);
 
   const load = async () => {
     const client = supabase as any;
@@ -100,6 +104,17 @@ function AdminInner() {
   const restoreAgents = async (seller_id: string) => {
     await (supabase as any).rpc("admin_restore_seller_agents", { _seller_id: seller_id });
     load();
+  };
+
+  const sendPayoutEmailFor = async (p: Payout) => {
+    if (!p.airtm_email) return;
+    setEmailState((s) => ({ ...s, [p.seller_id]: "sending" }));
+    try {
+      const r = await sendPayout({ data: { seller_id: p.seller_id, amount: Number(p.amount) } });
+      setEmailState((s) => ({ ...s, [p.seller_id]: r?.success ? "sent" : "error" }));
+    } catch {
+      setEmailState((s) => ({ ...s, [p.seller_id]: "error" }));
+    }
   };
 
   const exportCSV = () => {
@@ -279,7 +294,35 @@ function AdminInner() {
                       <td className="px-4 py-3 font-mono text-foreground">${Number(p.amount).toFixed(2)}</td>
                       <td className="px-4 py-3 font-mono text-xs text-muted-foreground">{p.transaction_count}</td>
                       <td className="px-4 py-3">
-                        <Btn onClick={() => markSellerPaid(p.seller_id)}>Mark Paid</Btn>
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <Btn onClick={() => markSellerPaid(p.seller_id)}>Mark Paid</Btn>
+                          {p.airtm_email ? (() => {
+                            const st = emailState[p.seller_id] ?? "idle";
+                            const label = st === "sending" ? "Sending..." : st === "sent" ? "Sent ✓" : "Send Email";
+                            return (
+                              <div className="flex flex-col gap-1">
+                                <button
+                                  onClick={() => sendPayoutEmailFor(p)}
+                                  disabled={st === "sending" || st === "sent"}
+                                  className={cn(
+                                    "font-mono text-xs px-3 py-1.5 rounded-[4px] border border-border",
+                                    st === "sent" && "cursor-not-allowed",
+                                    st === "sending" && "opacity-60 cursor-wait",
+                                    st !== "sent" && st !== "sending" && "text-foreground hover:bg-white/5",
+                                  )}
+                                  style={st === "sent" ? { color: "#3B82F6", borderColor: "#3B82F6" } : undefined}
+                                >
+                                  {label}
+                                </button>
+                                {st === "error" && (
+                                  <span className="font-mono text-[11px]" style={{ color: SAFETY_ORANGE }}>
+                                    Email failed to send. Try again.
+                                  </span>
+                                )}
+                              </div>
+                            );
+                          })() : null}
+                        </div>
                       </td>
                     </tr>
                   ))}

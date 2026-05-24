@@ -10,6 +10,7 @@ import type { Database } from "@/integrations/supabase/types";
 import { useAuth } from "@/hooks/use-auth";
 import { cn } from "@/lib/utils";
 import { cacheRunOutput, getAgentApiKey } from "@/lib/runs.functions";
+import { notifyDisputeForRun, notifyIfAgentsPaused } from "@/lib/email.functions";
 
 type InputField = {
   field_name: string;
@@ -110,6 +111,8 @@ function RunNewInner() {
   const { user } = useAuth();
   const navigate = useNavigate();
   const cacheOutput = useServerFn(cacheRunOutput);
+  const notifyDispute = useServerFn(notifyDisputeForRun);
+  const notifyPaused = useServerFn(notifyIfAgentsPaused);
 
   const params =
     typeof window !== "undefined"
@@ -423,6 +426,10 @@ function RunNewInner() {
         await supabase.rpc("calculate_reliability_score", {
           _seller_id: agent.seller_id,
         });
+        // Non-blocking: notify seller if score dropped below 50 and agents were paused.
+        notifyPaused({ data: { seller_id: agent.seller_id } }).catch((e) =>
+          console.error("agent-paused email failed", e),
+        );
       }
       setExec(execState);
       await cleanupUploads();
@@ -612,6 +619,10 @@ function RunNewInner() {
     setDisputeSubmitted(true);
     setDisputeShow(false);
     setDisputeTx({ ...disputeTx, dispute_window_closed: true });
+    // Non-blocking dispute email; failures silent.
+    notifyDispute({ data: { run_id: runId, dispute_reason: disputeReason.trim(), buyer_id: user.id } }).catch(
+      (e) => console.error("dispute email failed", e),
+    );
   };
 
   const disputeWindowOpen =

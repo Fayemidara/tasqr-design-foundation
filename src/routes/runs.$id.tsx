@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { createFileRoute, Link } from "@tanstack/react-router";
+import { useServerFn } from "@tanstack/react-start";
 import ReactMarkdown from "react-markdown";
 import { Download } from "lucide-react";
 import { AppShell } from "@/components/layout/app-shell";
@@ -7,6 +8,7 @@ import { RequireAuth } from "@/components/auth/require-auth";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
 import { cn } from "@/lib/utils";
+import { notifyDisputeForRun } from "@/lib/email.functions";
 
 type Run = {
   id: string;
@@ -103,6 +105,8 @@ function RunDetail({ id }: { id: string }) {
 
   const canRaise = windowOpen && !existingDispute && !submitted;
 
+  const notifyDispute = useServerFn(notifyDisputeForRun);
+
   const submitDispute = async () => {
     if (!run || !user || !tx) return;
     if (!reason.trim()) return;
@@ -115,6 +119,10 @@ function RunDetail({ id }: { id: string }) {
     if (dErr) return;
     setSubmitted(true);
     setShowForm(false);
+    // Fire-and-forget email notification; failures are silent.
+    notifyDispute({ data: { run_id: run.id, dispute_reason: reason.trim(), buyer_id: user.id } }).catch(
+      (e) => console.error("dispute email failed", e),
+    );
   };
 
   if (loading) {
