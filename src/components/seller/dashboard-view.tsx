@@ -153,50 +153,32 @@ export function SellerDashboardView() {
         .gte("refunded_at", since);
       if (!cancelled) setRefundCount(count ?? 0);
 
-      // Reliability sub-metrics: pull last 30 days of runs for seller's agents.
-      const agentIds = (ags ?? []).map((a: any) => a.id);
-      if (agentIds.length > 0) {
-        const { data: runs } = await supabase
-          .from("runs")
-          .select("id,status")
-          .in("agent_id", agentIds)
-          .gte("created_at", since);
-        const total = runs?.length ?? 0;
-        if (total > 0 && runs) {
-          const timeouts = runs.filter((r) => r.status === "timeout").length;
-          const errs = runs.filter((r) => r.status === "error").length;
-          const malformed = runs.filter((r) => r.status === "malformed").length;
-          const { data: disputeRows } = await supabase
-            .from("disputes")
-            .select("run_id")
-            .in("run_id", runs.map((r) => r.id));
-          const disputes = disputeRows?.length ?? 0;
-          if (!cancelled) {
-            setMetrics({
-              timeoutRate: (timeouts / total) * 100,
-              errorRate: (errs / total) * 100,
-              malformedCount: malformed,
-              disputeRate: (disputes / total) * 100,
-            });
-          }
-        }
+      // Reliability sub-metrics via SECURITY DEFINER RPC (seller can't read
+      // buyer-submitted inputs/outputs directly anymore).
+      const { data: metricsRow } = await (supabase as any)
+        .rpc("get_seller_run_metrics", { _seller_id: prof.id })
+        .maybeSingle();
+      const total = Number(metricsRow?.total_runs ?? 0);
+      if (total > 0 && !cancelled) {
+        setMetrics({
+          timeoutRate: (Number(metricsRow?.timeout_count ?? 0) / total) * 100,
+          errorRate: (Number(metricsRow?.error_count ?? 0) / total) * 100,
+          malformedCount: Number(metricsRow?.malformed_count ?? 0),
+          disputeRate: (Number(metricsRow?.dispute_count ?? 0) / total) * 100,
+        });
       }
 
-      // Open disputes against this seller's agents
-      if (agentIds.length > 0) {
-        const { data: openDisputes } = await supabase
-          .from("disputes")
-          .select("id,created_at,status,run:runs!inner(agent_id,agent:agents(name))")
-          .eq("status", "open")
-          .in("run.agent_id", agentIds)
-          .order("created_at", { ascending: false });
-        if (!cancelled && openDisputes) {
-          setDisputes(
-            (openDisputes as any[]).map((d) => ({
+      // Open disputes against this seller's agents (via RPC; no run-row read).
+      const { data: openDisputes } = await (supabase as any).rpc(
+        "get_seller_open_disputes",
+      );
+      if (!cancelled && Array.isArray(openDisputes)) {
+        setDisputes(
+          (openDisputes as any[]).map((d) => ({
               id: d.id,
               created_at: d.created_at,
               status: d.status,
-              agent_name: d.run?.agent?.name ?? "—",
+              agent_name: d.agent_name ?? "—",
             })),
           );
         }
