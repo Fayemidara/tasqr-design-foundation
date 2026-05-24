@@ -111,6 +111,8 @@ function RunNewInner() {
   const { user } = useAuth();
   const navigate = useNavigate();
   const cacheOutput = useServerFn(cacheRunOutput);
+  const notifyDispute = useServerFn(notifyDisputeForRun);
+  const notifyPaused = useServerFn(notifyIfAgentsPaused);
 
   const params =
     typeof window !== "undefined"
