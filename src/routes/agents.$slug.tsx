@@ -473,10 +473,9 @@ function AgentDetailInner({ slug }: { slug: string }) {
 
   const handleCancelSubscription = async () => {
     if (!activeSubscription) return;
-    const { error } = await supabase
-      .from("subscriptions")
-      .update({ status: "cancelled" })
-      .eq("id", activeSubscription.id);
+    const { error } = await (supabase as any).rpc("cancel_subscription", {
+      _sub_id: activeSubscription.id,
+    });
     if (!error) {
       setPayMessage(
         `Subscription cancelled. You retain access until ${new Date(activeSubscription.current_period_end).toLocaleDateString()}.`,
