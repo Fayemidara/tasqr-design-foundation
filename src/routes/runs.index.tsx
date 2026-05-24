@@ -112,10 +112,7 @@ function MyRuns() {
   }, [user]);
 
   const cancelSub = async (id: string) => {
-    const { error } = await supabase
-      .from("subscriptions")
-      .update({ status: "cancelled" })
-      .eq("id", id);
+    const { error } = await (supabase as any).rpc("cancel_subscription", { _sub_id: id });
     if (!error && subs) {
       setSubs(subs.map((s) => (s.id === id ? { ...s, status: "cancelled" } : s)));
     }
