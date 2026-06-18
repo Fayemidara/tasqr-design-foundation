@@ -9,6 +9,7 @@ import {
 } from "@tanstack/react-router";
 
 import appCss from "../styles.css?url";
+import favicon from "@/assets/favicon.png.asset.json";
 import { AuthProvider } from "@/hooks/use-auth";
 import { ModeProvider } from "@/hooks/use-mode";
 
