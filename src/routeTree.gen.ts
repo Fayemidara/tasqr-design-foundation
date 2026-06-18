@@ -21,12 +21,14 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as RunsIndexRouteImport } from './routes/runs.index'
 import { Route as SellerSettingsRouteImport } from './routes/seller.settings'
 import { Route as SellerOnboardingRouteImport } from './routes/seller.onboarding'
-import { Route as SellerEarningsRouteImport } from './routes/seller.earnings'
+import { Route as SellerDocsRouteImport } from './routes/seller.docs'
 import { Route as SellerDashboardRouteImport } from './routes/seller.dashboard'
 import { Route as RunsNewRouteImport } from './routes/runs.new'
 import { Route as RunsIdRouteImport } from './routes/runs.$id'
 import { Route as AgentsSlugRouteImport } from './routes/agents.$slug'
 import { Route as SellerAgentsNewRouteImport } from './routes/seller.agents.new'
+import { Route as SellerAgentsIdTestRouteImport } from './routes/seller.agents.$id.test'
+import { Route as SellerAgentsIdEditRouteImport } from './routes/seller.agents.$id.edit'
 
 const SignupRoute = SignupRouteImport.update({
   id: '/signup',
@@ -88,9 +90,9 @@ const SellerOnboardingRoute = SellerOnboardingRouteImport.update({
   path: '/seller/onboarding',
   getParentRoute: () => rootRouteImport,
 } as any)
-const SellerEarningsRoute = SellerEarningsRouteImport.update({
-  id: '/seller/earnings',
-  path: '/seller/earnings',
+const SellerDocsRoute = SellerDocsRouteImport.update({
+  id: '/seller/docs',
+  path: '/seller/docs',
   getParentRoute: () => rootRouteImport,
 } as any)
 const SellerDashboardRoute = SellerDashboardRouteImport.update({
@@ -118,6 +120,16 @@ const SellerAgentsNewRoute = SellerAgentsNewRouteImport.update({
   path: '/seller/agents/new',
   getParentRoute: () => rootRouteImport,
 } as any)
+const SellerAgentsIdTestRoute = SellerAgentsIdTestRouteImport.update({
+  id: '/seller/agents/$id/test',
+  path: '/seller/agents/$id/test',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SellerAgentsIdEditRoute = SellerAgentsIdEditRouteImport.update({
+  id: '/seller/agents/$id/edit',
+  path: '/seller/agents/$id/edit',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -133,11 +145,13 @@ export interface FileRoutesByFullPath {
   '/runs/$id': typeof RunsIdRoute
   '/runs/new': typeof RunsNewRoute
   '/seller/dashboard': typeof SellerDashboardRoute
-  '/seller/earnings': typeof SellerEarningsRoute
+  '/seller/docs': typeof SellerDocsRoute
   '/seller/onboarding': typeof SellerOnboardingRoute
   '/seller/settings': typeof SellerSettingsRoute
   '/runs/': typeof RunsIndexRoute
   '/seller/agents/new': typeof SellerAgentsNewRoute
+  '/seller/agents/$id/edit': typeof SellerAgentsIdEditRoute
+  '/seller/agents/$id/test': typeof SellerAgentsIdTestRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -152,11 +166,13 @@ export interface FileRoutesByTo {
   '/runs/$id': typeof RunsIdRoute
   '/runs/new': typeof RunsNewRoute
   '/seller/dashboard': typeof SellerDashboardRoute
-  '/seller/earnings': typeof SellerEarningsRoute
+  '/seller/docs': typeof SellerDocsRoute
   '/seller/onboarding': typeof SellerOnboardingRoute
   '/seller/settings': typeof SellerSettingsRoute
   '/runs': typeof RunsIndexRoute
   '/seller/agents/new': typeof SellerAgentsNewRoute
+  '/seller/agents/$id/edit': typeof SellerAgentsIdEditRoute
+  '/seller/agents/$id/test': typeof SellerAgentsIdTestRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -173,11 +189,13 @@ export interface FileRoutesById {
   '/runs/$id': typeof RunsIdRoute
   '/runs/new': typeof RunsNewRoute
   '/seller/dashboard': typeof SellerDashboardRoute
-  '/seller/earnings': typeof SellerEarningsRoute
+  '/seller/docs': typeof SellerDocsRoute
   '/seller/onboarding': typeof SellerOnboardingRoute
   '/seller/settings': typeof SellerSettingsRoute
   '/runs/': typeof RunsIndexRoute
   '/seller/agents/new': typeof SellerAgentsNewRoute
+  '/seller/agents/$id/edit': typeof SellerAgentsIdEditRoute
+  '/seller/agents/$id/test': typeof SellerAgentsIdTestRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -195,11 +213,13 @@ export interface FileRouteTypes {
     | '/runs/$id'
     | '/runs/new'
     | '/seller/dashboard'
-    | '/seller/earnings'
+    | '/seller/docs'
     | '/seller/onboarding'
     | '/seller/settings'
     | '/runs/'
     | '/seller/agents/new'
+    | '/seller/agents/$id/edit'
+    | '/seller/agents/$id/test'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -214,11 +234,13 @@ export interface FileRouteTypes {
     | '/runs/$id'
     | '/runs/new'
     | '/seller/dashboard'
-    | '/seller/earnings'
+    | '/seller/docs'
     | '/seller/onboarding'
     | '/seller/settings'
     | '/runs'
     | '/seller/agents/new'
+    | '/seller/agents/$id/edit'
+    | '/seller/agents/$id/test'
   id:
     | '__root__'
     | '/'
@@ -234,11 +256,13 @@ export interface FileRouteTypes {
     | '/runs/$id'
     | '/runs/new'
     | '/seller/dashboard'
-    | '/seller/earnings'
+    | '/seller/docs'
     | '/seller/onboarding'
     | '/seller/settings'
     | '/runs/'
     | '/seller/agents/new'
+    | '/seller/agents/$id/edit'
+    | '/seller/agents/$id/test'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -253,10 +277,12 @@ export interface RootRouteChildren {
   SignupRoute: typeof SignupRoute
   AgentsSlugRoute: typeof AgentsSlugRoute
   SellerDashboardRoute: typeof SellerDashboardRoute
-  SellerEarningsRoute: typeof SellerEarningsRoute
+  SellerDocsRoute: typeof SellerDocsRoute
   SellerOnboardingRoute: typeof SellerOnboardingRoute
   SellerSettingsRoute: typeof SellerSettingsRoute
   SellerAgentsNewRoute: typeof SellerAgentsNewRoute
+  SellerAgentsIdEditRoute: typeof SellerAgentsIdEditRoute
+  SellerAgentsIdTestRoute: typeof SellerAgentsIdTestRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -345,11 +371,11 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof SellerOnboardingRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/seller/earnings': {
-      id: '/seller/earnings'
-      path: '/seller/earnings'
-      fullPath: '/seller/earnings'
-      preLoaderRoute: typeof SellerEarningsRouteImport
+    '/seller/docs': {
+      id: '/seller/docs'
+      path: '/seller/docs'
+      fullPath: '/seller/docs'
+      preLoaderRoute: typeof SellerDocsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/seller/dashboard': {
@@ -387,6 +413,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof SellerAgentsNewRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/seller/agents/$id/test': {
+      id: '/seller/agents/$id/test'
+      path: '/seller/agents/$id/test'
+      fullPath: '/seller/agents/$id/test'
+      preLoaderRoute: typeof SellerAgentsIdTestRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/seller/agents/$id/edit': {
+      id: '/seller/agents/$id/edit'
+      path: '/seller/agents/$id/edit'
+      fullPath: '/seller/agents/$id/edit'
+      preLoaderRoute: typeof SellerAgentsIdEditRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -416,21 +456,13 @@ const rootRouteChildren: RootRouteChildren = {
   SignupRoute: SignupRoute,
   AgentsSlugRoute: AgentsSlugRoute,
   SellerDashboardRoute: SellerDashboardRoute,
-  SellerEarningsRoute: SellerEarningsRoute,
+  SellerDocsRoute: SellerDocsRoute,
   SellerOnboardingRoute: SellerOnboardingRoute,
   SellerSettingsRoute: SellerSettingsRoute,
   SellerAgentsNewRoute: SellerAgentsNewRoute,
+  SellerAgentsIdEditRoute: SellerAgentsIdEditRoute,
+  SellerAgentsIdTestRoute: SellerAgentsIdTestRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
-
-import type { getRouter } from './router.tsx'
-import type { startInstance } from './start.ts'
-declare module '@tanstack/react-start' {
-  interface Register {
-    ssr: true
-    router: Awaited<ReturnType<typeof getRouter>>
-    config: Awaited<ReturnType<typeof startInstance.getOptions>>
-  }
-}

@@ -8,6 +8,9 @@ import { supabase } from "@/integrations/supabase/client";
 
 export const Route = createFileRoute("/signin")({
   head: () => ({ meta: [{ title: "Sign In — Tasqr" }] }),
+  validateSearch: (search: Record<string, unknown>) => ({
+    redirect: typeof search.redirect === "string" ? search.redirect : undefined,
+  }),
   component: () => (
     <RedirectIfAuthed>
       <SignIn />
@@ -17,6 +20,7 @@ export const Route = createFileRoute("/signin")({
 
 function SignIn() {
   const navigate = useNavigate();
+  const { redirect } = Route.useSearch();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
@@ -29,7 +33,11 @@ function SignIn() {
     const { error } = await supabase.auth.signInWithPassword({ email, password });
     setLoading(false);
     if (error) { setError(error.message); return; }
-    navigate({ to: "/browse" });
+    if (redirect && redirect.startsWith("/")) {
+      window.location.href = redirect;
+    } else {
+      navigate({ to: "/browse" });
+    }
   };
 
   return (

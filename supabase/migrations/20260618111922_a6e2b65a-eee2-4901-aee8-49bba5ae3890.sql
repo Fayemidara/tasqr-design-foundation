@@ -1,0 +1,2 @@
+REVOKE EXECUTE ON FUNCTION public.pause_subscriptions_for_agent(uuid) FROM anon, authenticated, PUBLIC;
+REVOKE EXECUTE ON FUNCTION public.list_reactivated_subscribers(uuid) FROM anon, authenticated, PUBLIC;

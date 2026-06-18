@@ -1,4 +1,3 @@
-@import url("https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600;700&family=Public+Sans:wght@400;500;600;700&display=swap");
 @import "tailwindcss" source(none);
 @import "tw-animate-css";
 
@@ -133,3 +132,5 @@
     letter-spacing: 0.05em;
   }
 }
+
+#lovable-badge { display: none !important; }

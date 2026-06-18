@@ -73,11 +73,11 @@ function SectionHeader({ title, onEdit }: { title: string; onEdit: () => void })
 
 function Row({ label, value }: { label: string; value: React.ReactNode }) {
   return (
-    <div className="flex gap-3 py-1">
-      <div className="font-mono text-xs uppercase tracking-[0.05em] text-muted-foreground min-w-[140px]">
+    <div className="flex flex-col sm:flex-row gap-1 sm:gap-3 py-1">
+      <div className="font-mono text-xs uppercase tracking-[0.05em] text-muted-foreground sm:w-[140px] sm:shrink-0">
         {label}
       </div>
-      <div className="font-sans text-sm text-foreground flex-1 break-words">{value}</div>
+      <div className="font-sans text-sm text-foreground flex-1 break-words min-w-0">{value}</div>
     </div>
   );
 }

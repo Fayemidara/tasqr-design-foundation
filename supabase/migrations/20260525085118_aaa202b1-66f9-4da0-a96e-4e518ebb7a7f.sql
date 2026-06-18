@@ -1,0 +1,1 @@
+ALTER TABLE public.seller_profiles ADD COLUMN IF NOT EXISTS api_key_encrypted text;

@@ -9,8 +9,13 @@ import { supabase } from "@/integrations/supabase/client";
 import type { Database } from "@/integrations/supabase/types";
 import { useAuth } from "@/hooks/use-auth";
 import { cn } from "@/lib/utils";
-import { cacheRunOutput, getAgentApiKey } from "@/lib/runs.functions";
-import { notifyDisputeForRun, notifyIfAgentsPaused } from "@/lib/email.functions";
+import { cacheRunOutput } from "@/lib/runs.functions";
+import { invokeAgentEndpoint } from "@/lib/api-key.functions";
+import {
+  notifyDisputeForRun,
+  notifyIfAgentsPaused,
+  pauseAndNotifySubscribers,
+} from "@/lib/email.functions";
 
 type InputField = {
   field_name: string;
@@ -28,7 +33,6 @@ type AgentRow = {
   short_description: string;
   processing_time: string | null;
   input_schema: InputField[] | null;
-  endpoint_url: string | null;
   seller_id: string;
 };
 
@@ -39,6 +43,13 @@ type ExecState =
   | { kind: "running" }
   | { kind: "success"; output: string; output_type: string }
   | { kind: "error"; message: string; refundable: boolean };
+
+type RepeatedPromptState =
+  | { kind: "hidden" }
+  | { kind: "open" }
+  | { kind: "cancelling" }
+  | { kind: "cancelled"; amount: number }
+  | { kind: "kept" };
 
 const LABEL = "font-mono text-[11px] uppercase tracking-[0.05em] text-muted-foreground";
 const SAFETY_ORANGE = "#F4511E";
@@ -111,8 +122,10 @@ function RunNewInner() {
   const { user } = useAuth();
   const navigate = useNavigate();
   const cacheOutput = useServerFn(cacheRunOutput);
+  const invokeAgent = useServerFn(invokeAgentEndpoint);
   const notifyDispute = useServerFn(notifyDisputeForRun);
   const notifyPaused = useServerFn(notifyIfAgentsPaused);
+  const pauseSubscribers = useServerFn(pauseAndNotifySubscribers);
 
   const params =
     typeof window !== "undefined"
@@ -128,6 +141,7 @@ function RunNewInner() {
   const [agent, setAgent] = useState<AgentRow | null>(null);
   const [loading, setLoading] = useState(true);
   const [transactionId, setTransactionId] = useState<string | null>(null);
+  const [txAmount, setTxAmount] = useState<number>(0);
   const [subscriptionId, setSubscriptionId] = useState<string | null>(null);
   const [values, setValues] = useState<Record<string, string>>({});
   const [files, setFiles] = useState<Record<string, FileEntry>>({});
@@ -136,6 +150,7 @@ function RunNewInner() {
   const [errors, setErrors] = useState<Record<string, boolean>>({});
   const [exec, setExec] = useState<ExecState>({ kind: "idle" });
   const [runId, setRunId] = useState<string | null>(null);
+  const [repeated, setRepeated] = useState<RepeatedPromptState>({ kind: "hidden" });
 
   // review UI
   const [rating, setRating] = useState(0);
@@ -160,7 +175,7 @@ function RunNewInner() {
       const query = supabase
         .from("agents")
         .select(
-          "id,slug,name,short_description,processing_time,input_schema,endpoint_url,seller_id",
+          "id,slug,name,short_description,processing_time,input_schema,seller_id",
         );
       const { data } = await (slugOrId.length === 36
         ? query.eq("id", slugOrId).maybeSingle()
@@ -205,7 +220,7 @@ function RunNewInner() {
         }
         const { data: tx } = await supabase
           .from("transactions")
-          .select("id, status, buyer_id, agent_id")
+          .select("id, status, buyer_id, agent_id, amount")
           .eq("id", transactionParam)
           .maybeSingle();
         if (
@@ -218,6 +233,7 @@ function RunNewInner() {
           return;
         }
         setTransactionId(tx.id);
+        setTxAmount(Number((tx as { amount?: number }).amount ?? 0));
       }
 
       setLoading(false);
@@ -320,6 +336,9 @@ function RunNewInner() {
     setErrors(nextErr);
     if (Object.keys(nextErr).length) return;
 
+    // Reset repeated-failures prompt for this new attempt.
+    setRepeated({ kind: "hidden" });
+
     const tasqr_request_id = requestIdRef.current;
     const inputsPayload: Record<string, string> = {};
     const filesPathPayload: Record<string, string> = {};
@@ -374,17 +393,11 @@ function RunNewInner() {
     }
     setRunId(inserted.id);
 
-    let apiKey = "";
-    try {
-      const r = await getAgentApiKey({ data: { agentId: agent.id } });
-      apiKey = r.api_key_prefix ?? "";
-    } catch {
-      // fall through with empty key; seller endpoint will reject
-    }
-
+    // Server-side proxy injects the decrypted api_key into the payload
+    // before POSTing to the seller's endpoint. The raw key never touches
+    // the browser.
     const payload = {
       tasqr_request_id,
-      api_key: apiKey,
       inputs: inputsPayload,
       files: filesSignedPayload,
       buyer_id: user.id,
@@ -392,16 +405,49 @@ function RunNewInner() {
     };
 
     const started = Date.now();
-    const controller = new AbortController();
-    const t = setTimeout(() => controller.abort(), timeoutMs(agent.processing_time));
 
     type RunUpdate = Database["public"]["Tables"]["runs"]["Update"];
+    const isSubscription = !!subscriptionId;
     // Admin note: refunded transactions are identified by
     // transactions.status = 'refunded' and can be exported for manual
     // Paystack processing.
     const refundIfNeeded = async () => {
+      // Subscriptions never auto-refund on a single failed run.
+      if (isSubscription) return;
       if (!transactionId) return;
       await supabase.rpc("trigger_refund", { _transaction_id: transactionId });
+    };
+    const subFailureMessage = (code: string): string => {
+      const tail =
+        " Your subscription is still active — please try again in a few minutes.";
+      if (code === "timeout") return "The agent took too long to respond." + tail;
+      if (code === "unreachable") return "The agent could not be reached." + tail;
+      if (code === "malformed")
+        return "The agent returned an invalid response." + tail;
+      return "Something went wrong on the agent's side." + tail;
+    };
+    const handleSubscriptionFailure = async (code: string) => {
+      if (!subscriptionId) return;
+      try {
+        const { data: newCount } = await (supabase as any).rpc(
+          "increment_subscription_failures",
+          { _sub_id: subscriptionId },
+        );
+        const n = Number(newCount ?? 0);
+        if (n >= 3) setRepeated({ kind: "open" });
+      } catch (e) {
+        console.error("increment_subscription_failures failed", e);
+      }
+    };
+    const resetSubscriptionFailures = async () => {
+      if (!subscriptionId) return;
+      try {
+        await (supabase as any).rpc("reset_subscription_failures", {
+          _sub_id: subscriptionId,
+        });
+      } catch (e) {
+        console.error("reset_subscription_failures failed", e);
+      }
     };
     const finalize = async (
       patch: RunUpdate,
@@ -420,63 +466,80 @@ function RunNewInner() {
         _subscription_id: subscriptionId ?? null,
       });
       if (refund) await refundIfNeeded();
-      // Recalculate seller reliability score after every final run status.
       const finalStatuses = ["success", "timeout", "unreachable", "error", "malformed"];
       if (patch.status && finalStatuses.includes(patch.status)) {
-        await supabase.rpc("calculate_reliability_score", {
-          _seller_id: agent.seller_id,
-        });
-        // Non-blocking: notify seller if score dropped below 50 and agents were paused.
-        notifyPaused({ data: { seller_id: agent.seller_id } }).catch((e) =>
-          console.error("agent-paused email failed", e),
-        );
+        try {
+          await supabase.rpc("calculate_reliability_score", { _agent_id: agent.id });
+        } catch {
+          // ignore
+        }
+        // Non-blocking: notify seller if THIS agent was paused due to low score,
+        // and pause/notify every active subscriber on this agent.
+        notifyPaused({ data: { seller_id: agent.seller_id, agent_id: agent.id } })
+          .then(() => {
+            pauseSubscribers({ data: { agent_id: agent.id } }).catch((e) =>
+              console.error("pause-subscribers email failed", e),
+            );
+          })
+          .catch((e) => console.error("agent-paused email failed", e));
       }
       setExec(execState);
       await cleanupUploads();
     };
 
-    let resp: Response | null = null;
+    let invokeResult: Awaited<ReturnType<typeof invokeAgent>>;
     try {
-      if (!agent.endpoint_url) throw new Error("no_endpoint");
-      resp = await fetch(agent.endpoint_url, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-        signal: controller.signal,
+      invokeResult = await invokeAgent({
+        data: {
+          agent_id: agent.id,
+          timeout_ms: timeoutMs(agent.processing_time),
+          payload,
+        },
       });
-    } catch (e) {
-      clearTimeout(t);
-      const aborted = (e as Error).name === "AbortError";
-      const status = aborted ? "timeout" : "unreachable";
-      const message = aborted
-        ? "The agent took too long to respond. You will receive a full refund."
-        : "The agent could not be reached. You will receive a full refund.";
+    } catch {
+      const message = isSubscription
+        ? subFailureMessage("unreachable")
+        : `The agent could not be reached. A full refund of $${txAmount.toFixed(2)} will be returned to your original payment method. Refunds are processed every Friday. Please allow an additional 3-5 bank working days for your card issuer to credit your statement.`;
       await finalize(
         {
-          status,
+          status: "unreachable",
           error_message: message,
-          error_code: aborted ? "timeout" : "unreachable",
+          error_code: "unreachable",
           processing_time_ms: Date.now() - started,
         },
-        { kind: "error", message, refundable: true },
-        true,
+        { kind: "error", message, refundable: !isSubscription },
+        !isSubscription,
       );
+      if (isSubscription) await handleSubscriptionFailure("unreachable");
       return;
     }
-    clearTimeout(t);
 
-    let body: {
-      status?: string;
-      output?: string;
-      output_type?: string;
-      error_code?: string;
-      error_message?: string;
-    } | null = null;
-    try {
-      body = await resp.json();
-    } catch {
-      const message =
-        "The agent returned an invalid response. You will receive a full refund.";
+    if (invokeResult.kind === "timeout" || invokeResult.kind === "unreachable") {
+      const aborted = invokeResult.kind === "timeout";
+      const amt = txAmount.toFixed(2);
+      const message = isSubscription
+        ? subFailureMessage(aborted ? "timeout" : "unreachable")
+        : aborted
+        ? `The agent took too long to respond. A full refund of $${amt} will be returned to your original payment method. Refunds are processed every Friday.`
+        : `The agent could not be reached. A full refund of $${amt} will be returned to your original payment method. Refunds are processed every Friday. Please allow an additional 3-5 bank working days for your card issuer to credit your statement.`;
+      await finalize(
+        {
+          status: invokeResult.kind,
+          error_message: message,
+          error_code: invokeResult.kind,
+          processing_time_ms: Date.now() - started,
+        },
+        { kind: "error", message, refundable: !isSubscription },
+        !isSubscription,
+      );
+      if (isSubscription) await handleSubscriptionFailure(invokeResult.kind);
+      return;
+    }
+
+    if (invokeResult.parseFailed) {
+      const message = isSubscription
+        ? subFailureMessage("malformed")
+        : `The agent returned an invalid response. A full refund of $${txAmount.toFixed(2)} will be returned to your original payment method. Refunds are processed every Friday. Please allow an additional 3-5 bank working days for your card issuer to credit your statement.`;
       await finalize(
         {
           status: "malformed",
@@ -484,15 +547,17 @@ function RunNewInner() {
           error_code: "malformed",
           processing_time_ms: Date.now() - started,
         },
-        { kind: "error", message, refundable: true },
-        true,
+        { kind: "error", message, refundable: !isSubscription },
+        !isSubscription,
       );
+      if (isSubscription) await handleSubscriptionFailure("malformed");
       return;
     }
 
+    const body = invokeResult.body;
     const processing_time_ms = Date.now() - started;
 
-    if (resp.ok && body?.status === "success" && body.output && body.output_type) {
+    if (invokeResult.ok && body?.status === "success" && body.output && body.output_type) {
       const ot = body.output_type;
       let storedOutput = body.output;
       let displayOutput = body.output;
@@ -523,6 +588,7 @@ function RunNewInner() {
         },
         { kind: "success", output: displayOutput, output_type: ot },
       );
+      if (isSubscription) await resetSubscriptionFailures();
       // The 48-hour dispute window was opened by complete_run() server-side.
       // Resolve the tx id for local UI state.
       let disputeTxId: string | null = transactionId;
@@ -562,10 +628,12 @@ function RunNewInner() {
     }
 
     if (sellerFault) {
-      const message =
-        code === "external_service_failure"
-          ? "The agent's external service failed. You will receive a full refund."
-          : "Something went wrong on the agent's side. You will receive a full refund.";
+      const amt = txAmount.toFixed(2);
+      const message = isSubscription
+        ? subFailureMessage(code)
+        : code === "external_service_failure"
+        ? `The agent's external service failed. A full refund of $${amt} will be returned to your original payment method. Refunds are processed every Friday. Please allow an additional 3-5 bank working days for your card issuer to credit your statement.`
+        : `Something went wrong on the agent's side. A full refund of $${amt} will be returned to your original payment method. Refunds are processed every Friday. Please allow an additional 3-5 bank working days for your card issuer to credit your statement.`;
       await finalize(
         {
           status: "error",
@@ -573,15 +641,17 @@ function RunNewInner() {
           error_message: message,
           processing_time_ms,
         },
-        { kind: "error", message, refundable: true },
-        true,
+        { kind: "error", message, refundable: !isSubscription },
+        !isSubscription,
       );
+      if (isSubscription) await handleSubscriptionFailure(code);
       return;
     }
 
     // malformed shape
-    const message =
-      "The agent returned an invalid response. You will receive a full refund.";
+    const message = isSubscription
+      ? subFailureMessage("malformed")
+      : `The agent returned an invalid response. A full refund of $${txAmount.toFixed(2)} will be returned to your original payment method. Refunds are processed every Friday. Please allow an additional 3-5 bank working days for your card issuer to credit your statement.`;
     await finalize(
       {
         status: "malformed",
@@ -589,9 +659,10 @@ function RunNewInner() {
         error_message: message,
         processing_time_ms,
       },
-      { kind: "error", message, refundable: true },
-      true,
+      { kind: "error", message, refundable: !isSubscription },
+      !isSubscription,
     );
+    if (isSubscription) await handleSubscriptionFailure("malformed");
   };
 
   const submitReview = async () => {
@@ -604,6 +675,48 @@ function RunNewInner() {
       review_text: reviewText.trim() || null,
     });
     setReviewState("submitted");
+  };
+
+  const cancelAndRefundSubscription = async () => {
+    if (!subscriptionId) return;
+    setRepeated({ kind: "cancelling" });
+    try {
+      const { data: sub } = await supabase
+        .from("subscriptions")
+        .select("transaction_id")
+        .eq("id", subscriptionId)
+        .maybeSingle();
+      const txId = (sub?.transaction_id as string | null) ?? null;
+      let amount = 0;
+      if (txId) {
+        const { data: tx } = await supabase
+          .from("transactions")
+          .select("amount")
+          .eq("id", txId)
+          .maybeSingle();
+        amount = Number((tx as { amount?: number } | null)?.amount ?? 0);
+      }
+      await (supabase as any).rpc("cancel_subscription", { _sub_id: subscriptionId });
+      if (txId) {
+        await (supabase as any).rpc("trigger_refund", { _transaction_id: txId });
+      }
+      setRepeated({ kind: "cancelled", amount });
+    } catch (e) {
+      console.error("cancel subscription failed", e);
+      setRepeated({ kind: "open" });
+    }
+  };
+
+  const keepSubscription = async () => {
+    setRepeated({ kind: "kept" });
+    if (!subscriptionId) return;
+    try {
+      await (supabase as any).rpc("reset_subscription_failures", {
+        _sub_id: subscriptionId,
+      });
+    } catch (e) {
+      console.error("reset_subscription_failures failed", e);
+    }
   };
 
   const submitDispute = async () => {
@@ -619,10 +732,10 @@ function RunNewInner() {
     setDisputeSubmitted(true);
     setDisputeShow(false);
     setDisputeTx({ ...disputeTx, dispute_window_closed: true });
-    // Non-blocking dispute email; failures silent.
-    notifyDispute({ data: { run_id: runId, dispute_reason: disputeReason.trim(), buyer_id: user.id } }).catch(
-      (e) => console.error("dispute email failed", e),
-    );
+    // Non-blocking dispute email; log full response for debugging.
+    notifyDispute({ data: { run_id: runId, dispute_reason: disputeReason.trim(), buyer_id: user.id } })
+      .then((res) => console.log("dispute email response", res))
+      .catch((e) => console.error("dispute email failed", e));
   };
 
   const disputeWindowOpen =
@@ -633,7 +746,7 @@ function RunNewInner() {
 
   if (loading) {
     return (
-      <div className="max-w-7xl mx-auto px-8 py-10">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-10">
         <div className="h-8 w-1/3 bg-[#334155] animate-pulse rounded-[4px]" />
       </div>
     );
@@ -641,7 +754,7 @@ function RunNewInner() {
 
   if (!agent) {
     return (
-      <div className="max-w-7xl mx-auto px-8 py-24 text-center">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-24 text-center">
         <p className="font-sans text-sm text-muted-foreground">Agent not found.</p>
       </div>
     );
@@ -650,8 +763,8 @@ function RunNewInner() {
   const proc = processingCopy(agent.processing_time);
 
   return (
-    <div className="max-w-7xl mx-auto px-8 py-10">
-      <div className="grid grid-cols-1 lg:grid-cols-[60%_40%] gap-8">
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-10">
+      <div className="grid grid-cols-1 gap-6 lg:gap-8">
         {/* Left */}
         <div className="space-y-8 min-w-0">
           <section className="space-y-2">
@@ -800,15 +913,7 @@ function RunNewInner() {
 
         {/* Right */}
         <aside className="min-w-0">
-          <div className="lg:sticky lg:top-8 space-y-4">
-            {exec.kind === "idle" && (
-              <div className="bg-surface-raised border border-border rounded-[4px] p-6">
-                <p className="font-sans text-sm text-muted-foreground">
-                  Fill in the inputs and run the agent to see the result here.
-                </p>
-              </div>
-            )}
-
+          <div className="space-y-4">
             {exec.kind === "running" && (
               <div className="bg-surface-raised border border-border rounded-[4px] p-6">
                 <p className="font-sans text-sm text-muted-foreground">
@@ -822,6 +927,65 @@ function RunNewInner() {
               <div className="bg-surface-raised border border-border rounded-[4px] p-6">
                 <p className="font-sans text-sm text-destructive">{exec.message}</p>
               </div>
+            )}
+
+            {exec.kind === "error" && subscriptionId && repeated.kind !== "hidden" && (
+              <>
+                {(repeated.kind === "open" || repeated.kind === "cancelling") && (
+                  <div
+                    className="bg-[#1E293B] rounded-[4px] p-4"
+                    style={{ border: `1px solid ${SAFETY_ORANGE}` }}
+                  >
+                    <div
+                      className="font-mono text-[11px] uppercase tracking-[0.05em]"
+                      style={{ color: SAFETY_ORANGE }}
+                    >
+                      REPEATED FAILURES
+                    </div>
+                    <p className="font-sans text-sm text-foreground mt-2">
+                      This agent has failed 3 times in a row. You can cancel your
+                      subscription and receive a full refund if you no longer wish
+                      to continue.
+                    </p>
+                    <div className="flex flex-wrap gap-3 mt-4">
+                      <button
+                        onClick={cancelAndRefundSubscription}
+                        disabled={repeated.kind === "cancelling"}
+                        className={cn(
+                          "font-mono text-xs px-3 py-2 rounded-[4px] bg-primary text-primary-foreground hover:bg-primary/90",
+                          repeated.kind === "cancelling" && "opacity-60 cursor-wait",
+                        )}
+                      >
+                        {repeated.kind === "cancelling"
+                          ? "Cancelling…"
+                          : "Cancel & Get Full Refund"}
+                      </button>
+                      <button
+                        onClick={keepSubscription}
+                        disabled={repeated.kind === "cancelling"}
+                        className="font-mono text-xs px-3 py-2 rounded-[4px] border border-border text-foreground hover:bg-white/5"
+                      >
+                        Keep Subscription
+                      </button>
+                    </div>
+                  </div>
+                )}
+                {repeated.kind === "cancelled" && (
+                  <div className="bg-surface-raised border border-border rounded-[4px] p-4">
+                    <p className="font-sans text-sm" style={{ color: "#1976D2" }}>
+                      Your subscription has been cancelled. A full refund of $
+                      {repeated.amount.toFixed(2)} will be returned to your original
+                      payment method. Refunds are processed every Friday.
+                    </p>
+                  </div>
+                )}
+                {repeated.kind === "kept" && (
+                  <p className="font-sans text-sm text-muted-foreground">
+                    Keeping your subscription. Please try running the agent again
+                    later.
+                  </p>
+                )}
+              </>
             )}
 
             {exec.kind === "success" && (

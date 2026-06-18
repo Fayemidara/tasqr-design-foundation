@@ -1,4 +1,4 @@
-import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useState, FormEvent } from "react";
 import { AuthLayout } from "@/components/layout/auth-layout";
 import { Button } from "@/components/ui/tasqr-button";
@@ -21,13 +21,14 @@ function FieldError({ msg }: { msg?: string }) {
 }
 
 function SignUp() {
-  const navigate = useNavigate();
   const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(false);
+  const [sent, setSent] = useState(false);
+  const [submittedEmail, setSubmittedEmail] = useState("");
 
   const onSubmit = async (e: FormEvent) => {
     e.preventDefault();
@@ -53,41 +54,56 @@ function SignUp() {
       setErrors({ email: error.message });
       return;
     }
-    navigate({ to: "/browse" });
+    setSubmittedEmail(email);
+    setSent(true);
   };
 
   return (
     <AuthLayout>
-      <h1 className="font-mono text-[24px] mb-6">Create Account</h1>
-      <form onSubmit={onSubmit} className="space-y-4" noValidate>
-        <div>
-          <Label htmlFor="fullName">Full Name</Label>
-          <Input id="fullName" value={fullName} onChange={(e) => setFullName(e.target.value)} />
-          <FieldError msg={errors.fullName} />
+      {sent ? (
+        <div className="space-y-4">
+          <h1 className="font-mono text-[24px] mb-2">Check your email</h1>
+          <p className="font-sans text-sm text-muted-foreground">
+            We sent a confirmation link to {submittedEmail}. Click it to activate your account.
+          </p>
+          <p className="font-sans text-xs text-muted-foreground">
+            Didn't receive it? Check your spam folder.
+          </p>
         </div>
-        <div>
-          <Label htmlFor="email">Email</Label>
-          <Input id="email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} />
-          <FieldError msg={errors.email} />
-        </div>
-        <div>
-          <Label htmlFor="password">Password</Label>
-          <Input id="password" type="password" value={password} onChange={(e) => setPassword(e.target.value)} />
-          <FieldError msg={errors.password} />
-        </div>
-        <div>
-          <Label htmlFor="confirm">Confirm Password</Label>
-          <Input id="confirm" type="password" value={confirm} onChange={(e) => setConfirm(e.target.value)} />
-          <FieldError msg={errors.confirm} />
-        </div>
-        <Button type="submit" className="w-full" disabled={loading}>
-          {loading ? "Creating..." : "Create Account"}
-        </Button>
-      </form>
-      <p className="mt-6 text-center text-sm text-muted-foreground font-sans">
-        Already have an account?{" "}
-        <Link to="/signin" className="text-primary hover:underline">Sign in</Link>
-      </p>
+      ) : (
+        <>
+          <h1 className="font-mono text-[24px] mb-6">Create Account</h1>
+          <form onSubmit={onSubmit} className="space-y-4" noValidate>
+            <div>
+              <Label htmlFor="fullName">Full Name</Label>
+              <Input id="fullName" value={fullName} onChange={(e) => setFullName(e.target.value)} />
+              <FieldError msg={errors.fullName} />
+            </div>
+            <div>
+              <Label htmlFor="email">Email</Label>
+              <Input id="email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} />
+              <FieldError msg={errors.email} />
+            </div>
+            <div>
+              <Label htmlFor="password">Password</Label>
+              <Input id="password" type="password" value={password} onChange={(e) => setPassword(e.target.value)} />
+              <FieldError msg={errors.password} />
+            </div>
+            <div>
+              <Label htmlFor="confirm">Confirm Password</Label>
+              <Input id="confirm" type="password" value={confirm} onChange={(e) => setConfirm(e.target.value)} />
+              <FieldError msg={errors.confirm} />
+            </div>
+            <Button type="submit" className="w-full" disabled={loading}>
+              {loading ? "Creating..." : "Create Account"}
+            </Button>
+          </form>
+          <p className="mt-6 text-center text-sm text-muted-foreground font-sans">
+            Already have an account?{" "}
+            <Link to="/signin" className="text-primary hover:underline">Sign in</Link>
+          </p>
+        </>
+      )}
     </AuthLayout>
   );
 }

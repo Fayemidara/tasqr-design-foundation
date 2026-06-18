@@ -4,17 +4,17 @@ import { supabaseAdmin } from "@/integrations/supabase/client.server";
 
 const SITE_NAME = "Tasqr";
 
-// Shared styled HTML wrapper — Ink Black bg, Off-White text, IBM Plex Mono header.
+// Shared styled HTML wrapper — clean white professional design.
 function wrap(opts: { heading: string; bodyHtml: string }) {
   return `<!doctype html>
-<html><body style="margin:0;padding:0;background:#0B0E14;">
-  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#0B0E14;padding:32px 16px;">
+<html><body style="margin:0;padding:0;background:#ffffff;">
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#ffffff;padding:32px 16px;">
     <tr><td align="center">
-      <table role="presentation" width="560" cellpadding="0" cellspacing="0" style="max-width:560px;background:#0B0E14;border:1px solid #1F2937;border-radius:4px;padding:32px;">
-        <tr><td style="font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:14px;letter-spacing:0.05em;color:#E2E8F0;padding-bottom:24px;">${SITE_NAME.toUpperCase()}</td></tr>
-        <tr><td style="font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:18px;color:#E2E8F0;padding-bottom:16px;">${opts.heading}</td></tr>
-        <tr><td style="font-family:'Public Sans',Arial,sans-serif;font-size:14px;line-height:1.6;color:#E2E8F0;">${opts.bodyHtml}</td></tr>
-        <tr><td style="font-family:'Public Sans',Arial,sans-serif;font-size:12px;color:#94A3B8;padding-top:32px;">— The ${SITE_NAME} Team</td></tr>
+      <table role="presentation" width="560" cellpadding="0" cellspacing="0" style="max-width:560px;background:#ffffff;border:1px solid #eeeeee;border-radius:4px;padding:32px;">
+        <tr><td style="font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:14px;letter-spacing:0.05em;color:#111111;padding-bottom:24px;">${SITE_NAME.toUpperCase()}</td></tr>
+        <tr><td style="font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:18px;color:#111111;padding-bottom:16px;">${opts.heading}</td></tr>
+        <tr><td style="font-family:'Public Sans',Arial,sans-serif;font-size:14px;line-height:1.6;color:#555555;">${opts.bodyHtml}</td></tr>
+        <tr><td style="border-top:1px solid #eeeeee;padding-top:20px;font-family:'Public Sans',Arial,sans-serif;font-size:11px;color:#aaaaaa;">© 2026 Tasqr. The AI workflow marketplace.</td></tr>
       </table>
     </td></tr>
   </table>
@@ -40,7 +40,7 @@ async function sendMail(opts: {
     auth: { user, pass },
   });
   await transport.sendMail({
-    from: user,
+    from: '"Tasqr" <' + user + '>',
     to: opts.to,
     subject: opts.subject,
     text: opts.text,
@@ -106,8 +106,8 @@ export const sendDisputeNotification = createServerFn({ method: "POST" })
         heading: "Dispute raised",
         bodyHtml: `<p style="margin:0 0 16px;">Hi ${data.seller_handle},</p>
           <p style="margin:0 0 16px;">A buyer has raised a dispute against your agent <strong>'${data.agent_name}'</strong>.</p>
-          <p style="margin:0 0 16px;color:#94A3B8;">Their reason:</p>
-          <p style="margin:0 0 16px;padding:12px;border-left:2px solid #F4511E;background:#111827;">${safeReason}</p>
+          <p style="margin:0 0 16px;color:#777777;">Their reason:</p>
+          <p style="margin:0 0 16px;padding:12px;border-left:2px solid #cccccc;">${safeReason}</p>
           <p style="margin:0;">${SITE_NAME} will review this dispute and reach out within 24 hours. No action is needed from you right now.</p>`,
       });
       await sendMail({
@@ -118,7 +118,12 @@ export const sendDisputeNotification = createServerFn({ method: "POST" })
       });
       return { success: true as const };
     } catch (err) {
-      return { success: false as const, error: (err as Error).message };
+      return {
+        success: false as const,
+        error: (err as Error).message,
+        gmailUserSet: !!process.env.GMAIL_USER,
+        gmailPasswordSet: !!process.env.GMAIL_APP_PASSWORD,
+      };
     }
   });
 
@@ -129,8 +134,8 @@ export const sendAgentPausedEmail = createServerFn({ method: "POST" })
       .object({
         seller_email: z.string().email(),
         seller_handle: z.string().min(1).max(200),
+        agent_name: z.string().min(1).max(300),
         reliability_score: z.number().min(0).max(100),
-        paused_agent_count: z.number().int().nonnegative(),
       })
       .parse(input),
   )
@@ -138,17 +143,17 @@ export const sendAgentPausedEmail = createServerFn({ method: "POST" })
     try {
       const supportEmail = process.env.GMAIL_USER ?? "";
       const score = Math.round(data.reliability_score);
-      const text = `Hi ${data.seller_handle},\n\nYour reliability score has dropped to ${score}/100. As a result, ${data.paused_agent_count} of your agents have been automatically paused.\n\nThis happens when your agents experience high timeout rates, errors, or buyer disputes.\n\nTo restore your agents, improve your agent's reliability and contact support at ${supportEmail}.\n\n— The ${SITE_NAME} Team`;
+      const text = `Hi ${data.seller_handle},\n\nYour agent '${data.agent_name}' has been automatically paused. Its reliability score dropped to ${score}/100 due to high failure rates.\n\nYour other agents are not affected.\n\nTo restore this agent, fix the underlying issues and contact support at ${supportEmail}.\n\n— The ${SITE_NAME} Team`;
       const html = wrap({
-        heading: `Agents paused: <span style="font-family:'IBM Plex Mono',monospace;">${score}/100</span>`,
+        heading: `Agent paused: <span style="font-family:'IBM Plex Mono',monospace;">${score}/100</span>`,
         bodyHtml: `<p style="margin:0 0 16px;">Hi ${data.seller_handle},</p>
-          <p style="margin:0 0 16px;">Your reliability score has dropped to <strong style="font-family:'IBM Plex Mono',monospace;">${score}/100</strong>. As a result, <strong>${data.paused_agent_count}</strong> of your agents have been automatically paused.</p>
-          <p style="margin:0 0 16px;">This happens when your agents experience high timeout rates, errors, or buyer disputes.</p>
-          <p style="margin:0;">To restore your agents, improve your agent's reliability and contact support at <a href="mailto:${supportEmail}" style="color:#3B82F6;">${supportEmail}</a>.</p>`,
+          <p style="margin:0 0 16px;">Your agent <strong>'${data.agent_name}'</strong> has been automatically paused. Its reliability score dropped to <strong style="font-family:'IBM Plex Mono',monospace;">${score}/100</strong> due to high failure rates.</p>
+          <p style="margin:0 0 16px;">Your other agents are not affected.</p>
+          <p style="margin:0;">To restore this agent, fix the underlying issues and contact support at <a href="mailto:${supportEmail}" style="display:inline-block;background:#1976D2;color:#ffffff;text-decoration:none;padding:8px 16px;border-radius:4px;font-size:13px;">${supportEmail}</a>.</p>`,
       });
       await sendMail({
         to: data.seller_email,
-        subject: `Your ${SITE_NAME} agents have been paused`,
+        subject: `Your ${SITE_NAME} agent has been paused`,
         text,
         html,
       });
@@ -225,8 +230,8 @@ export const notifyDisputeForRun = createServerFn({ method: "POST" })
         heading: "Dispute raised",
         bodyHtml: `<p style="margin:0 0 16px;">Hi ${handle},</p>
           <p style="margin:0 0 16px;">A buyer has raised a dispute against your agent <strong>'${agent.name}'</strong>.</p>
-          <p style="margin:0 0 16px;color:#94A3B8;">Their reason:</p>
-          <p style="margin:0 0 16px;padding:12px;border-left:2px solid #F4511E;background:#111827;">${safeReason}</p>
+          <p style="margin:0 0 16px;color:#777777;">Their reason:</p>
+          <p style="margin:0 0 16px;padding:12px;border-left:2px solid #cccccc;">${safeReason}</p>
           <p style="margin:0;">${SITE_NAME} will review this dispute and reach out within 24 hours. No action is needed from you right now.</p>`,
       });
       await sendMail({ to: s.email, subject: `A buyer has raised a dispute on ${SITE_NAME}`, text, html });
@@ -238,38 +243,162 @@ export const notifyDisputeForRun = createServerFn({ method: "POST" })
 
 // Run flow -> if reliability dropped below 50, notify seller of paused agents.
 export const notifyIfAgentsPaused = createServerFn({ method: "POST" })
-  .inputValidator((input: unknown) => z.object({ seller_id: z.string().uuid() }).parse(input))
+  .inputValidator((input: unknown) =>
+    z.object({ seller_id: z.string().uuid(), agent_id: z.string().uuid() }).parse(input),
+  )
   .handler(async ({ data }) => {
     try {
-      const { data: sp } = await supabaseAdmin
-        .from("seller_profiles")
-        .select("reliability_score")
-        .eq("id", data.seller_id)
-        .maybeSingle();
-      const score = Number(sp?.reliability_score ?? 100);
-      if (score >= 50) return { success: true as const, skipped: true as const };
-      const { count } = await supabaseAdmin
+      const { data: ag } = await supabaseAdmin
         .from("agents")
-        .select("id", { count: "exact", head: true })
-        .eq("seller_id", data.seller_id)
-        .eq("status", "paused");
-      const pausedCount = count ?? 0;
-      if (pausedCount === 0) return { success: true as const, skipped: true as const };
+        .select("name, status, reliability_score")
+        .eq("id", data.agent_id)
+        .maybeSingle();
+      if (!ag) return { success: false as const, error: "agent_not_found" };
+      const score = Number(ag.reliability_score ?? 100);
+      if (score >= 50 || ag.status !== "paused") {
+        return { success: true as const, skipped: true as const };
+      }
       const s = await getSellerEmail(data.seller_id);
       if (!s.email) return { success: false as const, error: "seller_email_not_found" };
       const handle = s.handle ?? "there";
       const supportEmail = process.env.GMAIL_USER ?? "";
       const scoreInt = Math.round(score);
-      const text = `Hi ${handle},\n\nYour reliability score has dropped to ${scoreInt}/100. As a result, ${pausedCount} of your agents have been automatically paused.\n\nThis happens when your agents experience high timeout rates, errors, or buyer disputes.\n\nTo restore your agents, improve your agent's reliability and contact support at ${supportEmail}.\n\n— The ${SITE_NAME} Team`;
+      const text = `Hi ${handle},\n\nYour agent '${ag.name}' has been automatically paused. Its reliability score dropped to ${scoreInt}/100 due to high failure rates.\n\nYour other agents are not affected.\n\nTo restore this agent, fix the underlying issues and contact support at ${supportEmail}.\n\n— The ${SITE_NAME} Team`;
       const html = wrap({
-        heading: `Agents paused: <span style="font-family:'IBM Plex Mono',monospace;">${scoreInt}/100</span>`,
+        heading: `Agent paused: <span style="font-family:'IBM Plex Mono',monospace;">${scoreInt}/100</span>`,
         bodyHtml: `<p style="margin:0 0 16px;">Hi ${handle},</p>
-          <p style="margin:0 0 16px;">Your reliability score has dropped to <strong style="font-family:'IBM Plex Mono',monospace;">${scoreInt}/100</strong>. As a result, <strong>${pausedCount}</strong> of your agents have been automatically paused.</p>
-          <p style="margin:0 0 16px;">This happens when your agents experience high timeout rates, errors, or buyer disputes.</p>
-          <p style="margin:0;">To restore your agents, improve your agent's reliability and contact support at <a href="mailto:${supportEmail}" style="color:#3B82F6;">${supportEmail}</a>.</p>`,
+          <p style="margin:0 0 16px;">Your agent <strong>'${ag.name}'</strong> has been automatically paused. Its reliability score dropped to <strong style="font-family:'IBM Plex Mono',monospace;">${scoreInt}/100</strong> due to high failure rates.</p>
+          <p style="margin:0 0 16px;">Your other agents are not affected.</p>
+          <p style="margin:0;">To restore this agent, fix the underlying issues and contact support at <a href="mailto:${supportEmail}" style="display:inline-block;background:#1976D2;color:#ffffff;text-decoration:none;padding:8px 16px;border-radius:4px;font-size:13px;">${supportEmail}</a>.</p>`,
       });
-      await sendMail({ to: s.email, subject: `Your ${SITE_NAME} agents have been paused`, text, html });
+      await sendMail({ to: s.email, subject: `Your ${SITE_NAME} agent has been paused`, text, html });
       return { success: true as const };
+    } catch (err) {
+      return { success: false as const, error: (err as Error).message };
+    }
+  });
+
+// --- 4. Agent restored (admin-triggered) --------------------------------
+export const sendAgentRestoredEmail = createServerFn({ method: "POST" })
+  .inputValidator((input: unknown) =>
+    z
+      .object({
+        seller_email: z.string().email(),
+        seller_handle: z.string().min(1).max(200),
+        agent_name: z.string().min(1).max(300),
+      })
+      .parse(input),
+  )
+  .handler(async ({ data }) => {
+    try {
+      const text = `Hi ${data.seller_handle},\n\nGood news — your agent '${data.agent_name}' has been reviewed and restored. It is now live on ${SITE_NAME} again.\n\nPlease ensure the underlying issues have been fixed to avoid another automatic pause.\n\nIf you have any questions, reply to this email.\n\n— The ${SITE_NAME} Team`;
+      const html = wrap({
+        heading: "Agent restored",
+        bodyHtml: `<p style="margin:0 0 16px;">Hi ${data.seller_handle},</p>
+          <p style="margin:0 0 16px;">Good news — your agent <strong>'${data.agent_name}'</strong> has been reviewed and restored. It is now live on ${SITE_NAME} again.</p>
+          <p style="margin:0 0 16px;">Please ensure the underlying issues have been fixed to avoid another automatic pause.</p>
+          <p style="margin:0;">If you have any questions, reply to this email.</p>`,
+      });
+      await sendMail({
+        to: data.seller_email,
+        subject: `Your ${SITE_NAME} agent has been restored`,
+        text,
+        html,
+      });
+      return { success: true as const };
+    } catch (err) {
+      return { success: false as const, error: (err as Error).message };
+    }
+  });
+
+// --- 5. Subscriber: agent paused -----------------------------------------
+export const pauseAndNotifySubscribers = createServerFn({ method: "POST" })
+  .inputValidator((input: unknown) =>
+    z.object({ agent_id: z.string().uuid() }).parse(input),
+  )
+  .handler(async ({ data }) => {
+    try {
+      const { data: rows, error } = await (supabaseAdmin as any).rpc(
+        "pause_subscriptions_for_agent",
+        { _agent_id: data.agent_id },
+      );
+      if (error) return { success: false as const, error: error.message };
+      const list = (rows ?? []) as Array<{
+        buyer_email: string | null;
+        agent_name: string;
+        seller_handle: string | null;
+      }>;
+      let sent = 0;
+      for (const r of list) {
+        if (!r.buyer_email) continue;
+        const handle = r.seller_handle ?? "the seller";
+        const text = `Hi,\n\nThe agent '${r.agent_name}' by @${handle} that you're subscribed to has been automatically paused due to reliability issues.\n\nYou can cancel your subscription and receive a full refund from your subscriptions page.\n\nWe apologize for the inconvenience.\n\n— The ${SITE_NAME} Team`;
+        const html = wrap({
+          heading: "An agent you're subscribed to has been paused",
+          bodyHtml: `<p style="margin:0 0 16px;">Hi,</p>
+            <p style="margin:0 0 16px;">The agent <strong>'${r.agent_name}'</strong> by <strong>@${handle}</strong> that you're subscribed to has been automatically paused due to reliability issues.</p>
+            <p style="margin:0 0 16px;">You can cancel your subscription and receive a full refund from your subscriptions page.</p>
+            <p style="margin:0;">We apologize for the inconvenience.</p>`,
+        });
+        try {
+          await sendMail({
+            to: r.buyer_email,
+            subject: "An agent you're subscribed to has been paused",
+            text,
+            html,
+          });
+          sent++;
+        } catch (e) {
+          console.error("pause subscriber email failed", e);
+        }
+      }
+      return { success: true as const, sent, paused: list.length };
+    } catch (err) {
+      return { success: false as const, error: (err as Error).message };
+    }
+  });
+
+// --- 6. Subscriber: agent restored ---------------------------------------
+export const notifyRestoredSubscribers = createServerFn({ method: "POST" })
+  .inputValidator((input: unknown) =>
+    z.object({ agent_id: z.string().uuid() }).parse(input),
+  )
+  .handler(async ({ data }) => {
+    try {
+      const { data: rows, error } = await (supabaseAdmin as any).rpc(
+        "list_reactivated_subscribers",
+        { _agent_id: data.agent_id },
+      );
+      if (error) return { success: false as const, error: error.message };
+      const list = (rows ?? []) as Array<{
+        buyer_email: string | null;
+        agent_name: string;
+        seller_handle: string | null;
+      }>;
+      let sent = 0;
+      for (const r of list) {
+        if (!r.buyer_email) continue;
+        const handle = r.seller_handle ?? "the seller";
+        const text = `Hi,\n\nThe agent '${r.agent_name}' by @${handle} has been restored and is live again.\n\nYour subscription is now active. You can continue running it from your subscriptions page.\n\n— The ${SITE_NAME} Team`;
+        const html = wrap({
+          heading: "Good news — your agent subscription has been restored",
+          bodyHtml: `<p style="margin:0 0 16px;">Hi,</p>
+            <p style="margin:0 0 16px;">The agent <strong>'${r.agent_name}'</strong> by <strong>@${handle}</strong> has been restored and is live again.</p>
+            <p style="margin:0;">Your subscription is now active. You can continue running it from your subscriptions page.</p>`,
+        });
+        try {
+          await sendMail({
+            to: r.buyer_email,
+            subject: "Good news — your agent subscription has been restored",
+            text,
+            html,
+          });
+          sent++;
+        } catch (e) {
+          console.error("restored subscriber email failed", e);
+        }
+      }
+      return { success: true as const, sent };
     } catch (err) {
       return { success: false as const, error: (err as Error).message };
     }

@@ -6,7 +6,11 @@ import { RequireAuth } from "@/components/auth/require-auth";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
 import { cn } from "@/lib/utils";
-import { notifyPayoutSent } from "@/lib/email.functions";
+import {
+  notifyPayoutSent,
+  sendAgentRestoredEmail,
+  notifyRestoredSubscribers,
+} from "@/lib/email.functions";
 
 const ADMIN_EMAIL = import.meta.env.VITE_ADMIN_EMAIL as string | undefined;
 const LABEL = "font-mono text-[11px] uppercase tracking-[0.05em] text-muted-foreground";
@@ -37,6 +41,7 @@ type PendingRefund = {
   paystack_reference: string | null;
   amount: number;
   buyer_id: string;
+  buyer_email: string | null;
   created_at: string;
 };
 
@@ -48,35 +53,40 @@ type Payout = {
   transaction_count: number;
 };
 
-type LowRel = {
-  id: string;
-  handle: string | null;
+type SystemPaused = {
+  agent_id: string;
+  agent_name: string;
+  seller_handle: string | null;
+  seller_email: string | null;
   reliability_score: number;
-  timeout_rate: number;
-  error_rate: number;
+  failure_rate: number;
   dispute_rate: number;
+  paused_at: string;
 };
 
 function AdminInner() {
   const [disputes, setDisputes] = useState<Dispute[] | null>(null);
   const [pending, setPending] = useState<PendingRefund[] | null>(null);
   const [payouts, setPayouts] = useState<Payout[] | null>(null);
-  const [lowRel, setLowRel] = useState<LowRel[] | null>(null);
+  const [sysPaused, setSysPaused] = useState<SystemPaused[] | null>(null);
+  const [restoredIds, setRestoredIds] = useState<Record<string, boolean>>({});
   const [emailState, setEmailState] = useState<Record<string, "idle" | "sending" | "sent" | "error">>({});
   const sendPayout = useServerFn(notifyPayoutSent);
+  const sendRestored = useServerFn(sendAgentRestoredEmail);
+  const notifyRestoredSubs = useServerFn(notifyRestoredSubscribers);
 
   const load = async () => {
     const client = supabase as any;
-    const [d, p, py, lr] = await Promise.all([
+    const [d, p, py, sp] = await Promise.all([
       client.rpc("admin_list_open_disputes"),
       client.rpc("admin_list_pending_refunds"),
       client.rpc("admin_list_friday_payouts"),
-      client.rpc("admin_list_low_reliability"),
+      client.rpc("admin_list_system_paused_agents"),
     ]);
     setDisputes(d.data ?? []);
     setPending(p.data ?? []);
     setPayouts(py.data ?? []);
-    setLowRel(lr.data ?? []);
+    setSysPaused(sp.data ?? []);
   };
 
   useEffect(() => {
@@ -101,9 +111,29 @@ function AdminInner() {
     load();
   };
 
-  const restoreAgents = async (seller_id: string) => {
-    await (supabase as any).rpc("admin_restore_seller_agents", { _seller_id: seller_id });
-    load();
+  const restoreAgent = async (agent_id: string) => {
+    const row = sysPaused?.find((x) => x.agent_id === agent_id);
+    await (supabase as any).rpc("admin_restore_agent", { _agent_id: agent_id });
+    setRestoredIds((s) => ({ ...s, [agent_id]: true }));
+    if (row?.seller_email && row?.seller_handle && row?.agent_name) {
+      try {
+        await sendRestored({
+          data: {
+            seller_email: row.seller_email,
+            seller_handle: row.seller_handle,
+            agent_name: row.agent_name,
+          },
+        });
+      } catch {
+        /* non-blocking */
+      }
+    }
+    try {
+      await notifyRestoredSubs({ data: { agent_id } });
+    } catch {
+      /* non-blocking */
+    }
+    setTimeout(load, 1200);
   };
 
   const sendPayoutEmailFor = async (p: Payout) => {
@@ -153,14 +183,14 @@ function AdminInner() {
     </button>
   );
 
-  const Th = ({ children }: { children: React.ReactNode }) => (
-    <th className="text-left px-4 py-2 font-mono text-[11px] uppercase tracking-[0.05em] text-muted-foreground">
+  const Th = ({ children, className }: { children: React.ReactNode; className?: string }) => (
+    <th className={cn("text-left px-4 py-2 font-mono text-[11px] uppercase tracking-[0.05em] text-muted-foreground", className)}>
       {children}
     </th>
   );
 
   return (
-    <div className="max-w-7xl mx-auto px-8 py-10 space-y-10">
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-10 space-y-10">
       <div>
         <h1 className="font-mono text-[32px] mb-1">Admin</h1>
         <p className="text-muted-foreground text-sm font-sans">Internal operations console.</p>
@@ -179,8 +209,8 @@ function AdminInner() {
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b border-border">
-                    <Th>Dispute ID</Th>
-                    <Th>Buyer</Th>
+                    <Th className="hidden sm:table-cell">Dispute ID</Th>
+                    <Th className="hidden sm:table-cell">Buyer</Th>
                     <Th>Agent</Th>
                     <Th>Reason</Th>
                     <Th>Date</Th>
@@ -190,8 +220,8 @@ function AdminInner() {
                 <tbody>
                   {disputes.map((d) => (
                     <tr key={d.id} className="border-b border-border last:border-0 align-top">
-                      <td className="px-4 py-3 font-mono text-xs text-muted-foreground">{d.id.slice(0, 8)}…</td>
-                      <td className="px-4 py-3 font-mono text-xs text-muted-foreground">{d.buyer_id.slice(0, 8)}…</td>
+                      <td className="hidden sm:table-cell px-4 py-3 font-mono text-xs text-muted-foreground">{d.id.slice(0, 8)}…</td>
+                      <td className="hidden sm:table-cell px-4 py-3 font-mono text-xs text-muted-foreground">{d.buyer_id.slice(0, 8)}…</td>
                       <td className="px-4 py-3 font-mono text-foreground">{d.agent_name}</td>
                       <td className="px-4 py-3 font-sans text-sm text-foreground max-w-md">{d.reason}</td>
                       <td className="px-4 py-3 font-mono text-xs text-muted-foreground">
@@ -229,10 +259,9 @@ function AdminInner() {
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b border-border">
-                    <Th>Tx ID</Th>
-                    <Th>Paystack Ref</Th>
                     <Th>Amount</Th>
-                    <Th>Buyer</Th>
+                    <Th>Buyer Email</Th>
+                    <Th>Original Payment Ref</Th>
                     <Th>Date</Th>
                     <Th>Action</Th>
                   </tr>
@@ -240,17 +269,16 @@ function AdminInner() {
                 <tbody>
                   {pending.map((p) => (
                     <tr key={p.id} className="border-b border-border last:border-0">
-                      <td className="px-4 py-3 font-mono text-xs text-muted-foreground">{p.id.slice(0, 8)}…</td>
-                      <td className="px-4 py-3 font-mono text-xs text-foreground">
-                        {p.paystack_reference ?? "—"}
-                      </td>
                       <td className="px-4 py-3 font-mono text-foreground">${Number(p.amount).toFixed(2)}</td>
-                      <td className="px-4 py-3 font-mono text-xs text-muted-foreground">{p.buyer_id.slice(0, 8)}…</td>
+                      <td className="px-4 py-3 font-mono text-xs text-foreground">{p.buyer_email ?? "—"}</td>
+                      <td className="px-4 py-3 font-mono text-xs text-foreground">{p.paystack_reference ?? "—"}</td>
                       <td className="px-4 py-3 font-mono text-xs text-muted-foreground">
                         {new Date(p.created_at).toLocaleDateString()}
                       </td>
                       <td className="px-4 py-3">
-                        <Btn onClick={() => markRefundProcessed(p.id)}>Mark Processed</Btn>
+                        <span title="Search this reference in your Paystack dashboard to process the refund manually">
+                          <Btn onClick={() => markRefundProcessed(p.id)}>Mark Processed</Btn>
+                        </span>
                       </td>
                     </tr>
                   ))}
@@ -282,7 +310,7 @@ function AdminInner() {
                     <Th>Handle</Th>
                     <Th>AirTM Email</Th>
                     <Th>Amount</Th>
-                    <Th>Tx Count</Th>
+                    <Th className="hidden sm:table-cell">Tx Count</Th>
                     <Th>Action</Th>
                   </tr>
                 </thead>
@@ -292,7 +320,7 @@ function AdminInner() {
                       <td className="px-4 py-3 font-mono text-foreground">{p.handle ?? "—"}</td>
                       <td className="px-4 py-3 font-mono text-xs text-foreground">{p.airtm_email}</td>
                       <td className="px-4 py-3 font-mono text-foreground">${Number(p.amount).toFixed(2)}</td>
-                      <td className="px-4 py-3 font-mono text-xs text-muted-foreground">{p.transaction_count}</td>
+                      <td className="hidden sm:table-cell px-4 py-3 font-mono text-xs text-muted-foreground">{p.transaction_count}</td>
                       <td className="px-4 py-3">
                         <div className="flex items-center gap-2 flex-wrap">
                           <Btn onClick={() => markSellerPaid(p.seller_id)}>Mark Paid</Btn>
@@ -333,45 +361,55 @@ function AdminInner() {
         </Card>
       </section>
 
-      {/* Low Reliability */}
+      {/* System Paused Agents */}
       <section className="space-y-3">
-        <div className={LABEL}>Low Reliability Sellers</div>
+        <div className={LABEL}>System Paused Agents</div>
         <Card className="p-5">
-          {lowRel === null ? (
+          {sysPaused === null ? (
             <Skel className="h-16 w-full" />
-          ) : lowRel.length === 0 ? (
-            <p className="font-sans text-sm text-muted-foreground">No low-reliability sellers.</p>
+          ) : sysPaused.length === 0 ? (
+            <p className="font-sans text-sm text-muted-foreground">No system-paused agents.</p>
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b border-border">
-                    <Th>Handle</Th>
+                    <Th>Agent</Th>
+                    <Th>Seller</Th>
+                    <Th className="hidden md:table-cell">Email</Th>
                     <Th>Score</Th>
-                    <Th>Timeout %</Th>
-                    <Th>Error %</Th>
-                    <Th>Dispute %</Th>
+                    <Th className="hidden sm:table-cell">Failure %</Th>
+                    <Th className="hidden sm:table-cell">Dispute %</Th>
+                    <Th>Paused</Th>
                     <Th>Action</Th>
                   </tr>
                 </thead>
                 <tbody>
-                  {lowRel.map((s) => (
-                    <tr key={s.id} className="border-b border-border last:border-0">
-                      <td className="px-4 py-3 font-mono text-foreground">{s.handle ?? "—"}</td>
+                  {sysPaused.map((s) => (
+                    <tr key={s.agent_id} className="border-b border-border last:border-0">
+                      <td className="px-4 py-3 font-mono text-foreground">{s.agent_name}</td>
+                      <td className="px-4 py-3 font-mono text-foreground">{s.seller_handle ?? "—"}</td>
+                      <td className="hidden md:table-cell px-4 py-3 font-mono text-xs text-foreground">{s.seller_email ?? "—"}</td>
                       <td className="px-4 py-3 font-mono text-foreground">
                         {Number(s.reliability_score).toFixed(0)}
                       </td>
-                      <td className="px-4 py-3 font-mono text-xs text-muted-foreground">
-                        {Number(s.timeout_rate).toFixed(1)}%
+                      <td className="hidden sm:table-cell px-4 py-3 font-mono text-xs text-muted-foreground">
+                        {Number(s.failure_rate).toFixed(1)}%
                       </td>
-                      <td className="px-4 py-3 font-mono text-xs text-muted-foreground">
-                        {Number(s.error_rate).toFixed(1)}%
-                      </td>
-                      <td className="px-4 py-3 font-mono text-xs text-muted-foreground">
+                      <td className="hidden sm:table-cell px-4 py-3 font-mono text-xs text-muted-foreground">
                         {Number(s.dispute_rate).toFixed(1)}%
                       </td>
+                      <td className="px-4 py-3 font-mono text-xs text-muted-foreground">
+                        {new Date(s.paused_at).toLocaleDateString()}
+                      </td>
                       <td className="px-4 py-3">
-                        <Btn onClick={() => restoreAgents(s.id)}>Restore Agents</Btn>
+                        {restoredIds[s.agent_id] ? (
+                          <span className="font-mono text-xs" style={{ color: "#1976D2" }}>
+                            Agent restored.
+                          </span>
+                        ) : (
+                          <Btn onClick={() => restoreAgent(s.agent_id)}>Restore</Btn>
+                        )}
                       </td>
                     </tr>
                   ))}

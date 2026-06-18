@@ -25,6 +25,7 @@ type SubRow = {
   id: string;
   status: string;
   current_period_end: string;
+  transaction_id: string | null;
   agent: { name: string; slug: string | null } | null;
 };
 
@@ -39,6 +40,7 @@ const STATUS_STYLES: Record<string, string> = {
   active: "bg-success/15 text-success border-success/30",
   cancelled: "bg-muted text-muted-foreground border-border",
   expired: "bg-destructive/15 text-destructive border-destructive/30",
+  paused: "bg-warning/15 text-warning border-warning/30",
 };
 
 function StatusBadge({ status }: { status: string }) {
@@ -88,6 +90,8 @@ function MyRuns() {
   const { user } = useAuth();
   const [rows, setRows] = useState<Row[] | null>(null);
   const [subs, setSubs] = useState<SubRow[] | null>(null);
+  const [refundMsg, setRefundMsg] = useState<Record<string, string>>({});
+  const [cancelling, setCancelling] = useState<Record<string, boolean>>({});
 
   useEffect(() => {
     if (!user) return;
@@ -104,7 +108,7 @@ function MyRuns() {
     (async () => {
       const { data } = await supabase
         .from("subscriptions")
-        .select("id,status,current_period_end,agent:agents(name,slug)")
+        .select("id,status,current_period_end,transaction_id,agent:agents(name,slug)")
         .eq("buyer_id", user.id)
         .order("created_at", { ascending: false });
       setSubs((data as unknown as SubRow[]) ?? []);
@@ -118,12 +122,47 @@ function MyRuns() {
     }
   };
 
-  const activeSubs = (subs ?? []).filter(
-    (s) => s.status === "active" && new Date(s.current_period_end).getTime() > Date.now(),
-  );
+  const cancelAndRefund = async (s: SubRow) => {
+    setCancelling((c) => ({ ...c, [s.id]: true }));
+    try {
+      let amount = 0;
+      if (s.transaction_id) {
+        const { data: tx } = await supabase
+          .from("transactions")
+          .select("amount")
+          .eq("id", s.transaction_id)
+          .maybeSingle();
+        amount = Number((tx as { amount?: number } | null)?.amount ?? 0);
+      }
+      await (supabase as any).rpc("cancel_subscription", { _sub_id: s.id });
+      if (s.transaction_id) {
+        await (supabase as any).rpc("trigger_refund", {
+          _transaction_id: s.transaction_id,
+        });
+      }
+      setSubs((curr) =>
+        (curr ?? []).map((x) => (x.id === s.id ? { ...x, status: "cancelled" } : x)),
+      );
+      setRefundMsg((m) => ({
+        ...m,
+        [s.id]: `Your subscription has been cancelled. A full refund of $${amount.toFixed(
+          2,
+        )} will be returned to your original payment method. Refunds are processed every Friday.`,
+      }));
+    } catch (e) {
+      console.error("cancel+refund failed", e);
+    } finally {
+      setCancelling((c) => ({ ...c, [s.id]: false }));
+    }
+  };
+
+  const visibleSubs = (subs ?? []).filter((s) => {
+    if (s.status === "paused") return true;
+    return s.status === "active" && new Date(s.current_period_end).getTime() > Date.now();
+  });
 
   return (
-    <div className="max-w-6xl mx-auto px-8 py-10 space-y-10">
+    <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-10 space-y-10">
       <div>
         <div className="font-mono text-[11px] uppercase tracking-[0.05em] text-muted-foreground">
           Activity
@@ -137,14 +176,14 @@ function MyRuns() {
         {subs === null && (
           <div className="h-20 bg-[#334155] animate-pulse rounded-[4px]" />
         )}
-        {subs && activeSubs.length === 0 && (
+        {subs && visibleSubs.length === 0 && (
           <p className="font-sans text-sm text-muted-foreground">
             No active subscriptions.
           </p>
         )}
-        {subs && activeSubs.length > 0 && (
-          <div className="bg-surface-raised border border-border rounded-[4px] overflow-hidden">
-            <table className="w-full">
+        {subs && visibleSubs.length > 0 && (
+          <div className="bg-surface-raised border border-border rounded-[4px] overflow-x-auto">
+            <table className="w-full min-w-[480px]">
               <thead className="border-b border-border">
                 <tr className="text-left">
                   <th className="px-5 py-3 font-mono text-[11px] uppercase tracking-[0.05em] text-muted-foreground">
@@ -160,7 +199,7 @@ function MyRuns() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-border">
-                {activeSubs.map((s) => (
+                {visibleSubs.map((s) => (
                   <tr key={s.id}>
                     <td className="px-5 py-3">
                       {s.agent?.slug ? (
@@ -176,6 +215,22 @@ function MyRuns() {
                           {s.agent?.name ?? "Unknown agent"}
                         </span>
                       )}
+                      {s.status === "paused" && (
+                        <div
+                          className="mt-2 px-2 py-1 rounded-[4px] font-mono text-[11px]"
+                          style={{
+                            backgroundColor: SAFETY_ORANGE,
+                            color: "white",
+                          }}
+                        >
+                          This agent has been paused.
+                        </div>
+                      )}
+                      {refundMsg[s.id] && (
+                        <p className="font-sans text-xs mt-2" style={{ color: "#1976D2" }}>
+                          {refundMsg[s.id]}
+                        </p>
+                      )}
                     </td>
                     <td className="px-5 py-3 font-mono text-xs text-muted-foreground">
                       {new Date(s.current_period_end).toLocaleDateString()}
@@ -184,12 +239,26 @@ function MyRuns() {
                       <StatusBadge status={s.status} />
                     </td>
                     <td className="px-5 py-3 text-right">
-                      <button
-                        onClick={() => cancelSub(s.id)}
-                        className="font-mono text-xs px-3 py-1.5 rounded-[4px] border border-border text-foreground hover:bg-white/5"
-                      >
-                        Cancel
-                      </button>
+                      {s.status === "paused" ? (
+                        <button
+                          onClick={() => cancelAndRefund(s)}
+                          disabled={!!cancelling[s.id] || !!refundMsg[s.id]}
+                          className="font-mono text-xs px-3 py-1.5 rounded-[4px] bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-60"
+                        >
+                          {cancelling[s.id]
+                            ? "Cancelling…"
+                            : refundMsg[s.id]
+                            ? "Cancelled"
+                            : "Cancel & Get Full Refund"}
+                        </button>
+                      ) : (
+                        <button
+                          onClick={() => cancelSub(s.id)}
+                          className="font-mono text-xs px-3 py-1.5 rounded-[4px] border border-border text-foreground hover:bg-white/5"
+                        >
+                          Cancel
+                        </button>
+                      )}
                     </td>
                   </tr>
                 ))}
@@ -208,8 +277,8 @@ function MyRuns() {
       )}
 
       {rows && rows.length > 0 && (
-        <div className="bg-surface-raised border border-border rounded-[4px] overflow-hidden">
-          <table className="w-full">
+        <div className="bg-surface-raised border border-border rounded-[4px] overflow-x-auto">
+          <table className="w-full min-w-[640px]">
             <thead className="border-b border-border">
               <tr className="text-left">
                 <th className="px-5 py-3 font-mono text-[11px] uppercase tracking-[0.05em] text-muted-foreground">
@@ -218,10 +287,10 @@ function MyRuns() {
                 <th className="px-5 py-3 font-mono text-[11px] uppercase tracking-[0.05em] text-muted-foreground">
                   Status
                 </th>
-                <th className="px-5 py-3 font-mono text-[11px] uppercase tracking-[0.05em] text-muted-foreground">
+                <th className="px-5 py-3 font-mono text-[11px] uppercase tracking-[0.05em] text-muted-foreground hidden sm:table-cell">
                   Date
                 </th>
-                <th className="px-5 py-3 font-mono text-[11px] uppercase tracking-[0.05em] text-muted-foreground">
+                <th className="px-5 py-3 font-mono text-[11px] uppercase tracking-[0.05em] text-muted-foreground hidden md:table-cell">
                   Dispute
                 </th>
                 <th className="px-5 py-3" />
@@ -248,17 +317,17 @@ function MyRuns() {
                   <td className="px-5 py-3">
                     <StatusBadge status={r.status} />
                   </td>
-                  <td className="px-5 py-3 font-mono text-xs text-muted-foreground">
+                  <td className="px-5 py-3 font-mono text-xs text-muted-foreground hidden sm:table-cell">
                     {new Date(r.created_at).toLocaleString()}
                   </td>
-                  <td className="px-5 py-3">
+                  <td className="px-5 py-3 hidden md:table-cell">
                     <DisputeWindow row={r} />
                   </td>
                   <td className="px-5 py-3 text-right">
                     <Link
                       to="/runs/$id"
                       params={{ id: r.id }}
-                      className="font-mono text-xs px-3 py-1.5 rounded-[4px] border border-border text-foreground hover:bg-white/5"
+                      className="inline-flex items-center font-mono text-xs px-3 min-h-[36px] rounded-[4px] border border-border text-foreground hover:bg-white/5"
                     >
                       View Result
                     </Link>

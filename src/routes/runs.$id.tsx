@@ -119,22 +119,22 @@ function RunDetail({ id }: { id: string }) {
     if (dErr) return;
     setSubmitted(true);
     setShowForm(false);
-    // Fire-and-forget email notification; failures are silent.
-    notifyDispute({ data: { run_id: run.id, dispute_reason: reason.trim(), buyer_id: user.id } }).catch(
-      (e) => console.error("dispute email failed", e),
-    );
+    // Fire-and-forget email notification; log full response for debugging.
+    notifyDispute({ data: { run_id: run.id, dispute_reason: reason.trim(), buyer_id: user.id } })
+      .then((res) => console.log("dispute email response", res))
+      .catch((e) => console.error("dispute email failed", e));
   };
 
   if (loading) {
     return (
-      <div className="max-w-4xl mx-auto px-8 py-10">
+      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-10">
         <div className="h-8 w-1/3 bg-[#334155] animate-pulse rounded-[4px]" />
       </div>
     );
   }
   if (!run) {
     return (
-      <div className="max-w-4xl mx-auto px-8 py-24 text-center">
+      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-24 text-center">
         <p className="font-sans text-sm text-muted-foreground">Run not found.</p>
       </div>
     );
@@ -145,7 +145,7 @@ function RunDetail({ id }: { id: string }) {
   const fileUrl = signedUrl;
 
   return (
-    <div className="max-w-4xl mx-auto px-8 py-10 space-y-6">
+    <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-10 space-y-6">
       <div className="space-y-1">
         <Link to="/runs" className="font-mono text-xs text-muted-foreground hover:text-foreground">
           ← My Runs

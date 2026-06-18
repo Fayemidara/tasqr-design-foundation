@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { Info } from "lucide-react";
 import { Button } from "@/components/ui/tasqr-button";
 import { Input, Label } from "@/components/ui/tasqr-form";
 import { cn } from "@/lib/utils";
@@ -94,6 +95,26 @@ export function Step4ConnectAgent({
 
   return (
     <>
+      <div
+        className="mb-6 flex items-start gap-3 rounded-[4px] border p-4"
+        style={{ background: "#0F1C2E", borderColor: "#1976D2" }}
+      >
+        <Info className="mt-0.5 h-4 w-4 shrink-0" style={{ color: "#1976D2" }} />
+        <p className="font-sans text-sm" style={{ color: "#E2E8F0" }}>
+          Before connecting your agent, make sure it follows the Tasqr plugin
+          specification.{" "}
+          <a
+            href="/seller/docs"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-1 hover:underline"
+            style={{ color: "#1976D2" }}
+          >
+            Read the documentation →
+          </a>
+        </p>
+      </div>
+
       <h2 className="font-mono text-[24px] mb-2">Connect your agent</h2>
       <p className="font-sans text-sm text-muted-foreground mb-6">
         Tell Tasqr where to send buyer requests and what your agent returns.
@@ -149,7 +170,7 @@ export function Step4ConnectAgent({
         <div className="mb-2 font-mono text-[11px] uppercase tracking-[0.05em] text-muted-foreground">
           Processing Time
         </div>
-        <div className="grid grid-cols-3 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
           {PROCESSING_TIMES.map((p) => (
             <SelectableCard
               key={p.id}

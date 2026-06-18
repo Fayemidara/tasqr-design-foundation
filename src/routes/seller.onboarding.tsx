@@ -11,10 +11,11 @@ import { Step3InputBuilder } from "@/components/seller/step3-input-builder";
 import { Step4ConnectAgent, type Step4Data } from "@/components/seller/step4-connect-agent";
 import { Step5Listing, type Step5Data } from "@/components/seller/step5-listing";
 import { Step6Review } from "@/components/seller/step6-review";
+import { useServerFn } from "@tanstack/react-start";
+import { rotateSellerApiKey } from "@/lib/api-key.functions";
 
 const TOTAL_STEPS = 6;
 const HANDLE_RE = /^[a-zA-Z0-9_]+$/;
-const KEY_CHARS = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
 
 export const Route = createFileRoute("/seller/onboarding")({
   head: () => ({ meta: [{ title: "Seller Onboarding — Tasqr" }] }),
@@ -28,21 +29,6 @@ export const Route = createFileRoute("/seller/onboarding")({
 function FieldError({ msg }: { msg?: string }) {
   if (!msg) return null;
   return <p className="mt-1 font-mono text-xs text-destructive">{msg}</p>;
-}
-
-function generateApiKey() {
-  const arr = new Uint32Array(24);
-  crypto.getRandomValues(arr);
-  let s = "";
-  for (let i = 0; i < 24; i++) s += KEY_CHARS[arr[i] % KEY_CHARS.length];
-  return `tsk_live_${s}`;
-}
-
-async function sha256Hex(input: string) {
-  const buf = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(input));
-  return Array.from(new Uint8Array(buf))
-    .map((b) => b.toString(16).padStart(2, "0"))
-    .join("");
 }
 
 function SellerOnboarding() {
@@ -256,6 +242,7 @@ function SellerOnboarding() {
 
 function Step2({ onContinue }: { onContinue: (prefix: string) => void }) {
   const { user } = useAuth();
+  const rotateKey = useServerFn(rotateSellerApiKey);
   const [apiKey, setApiKey] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [copied, setCopied] = useState(false);
@@ -265,21 +252,15 @@ function Step2({ onContinue }: { onContinue: (prefix: string) => void }) {
     if (!user) return;
     setSaving(true);
     setError(null);
-    const key = generateApiKey();
-    const hash = await sha256Hex(key);
-    const prefix = key.slice(0, 12);
-    const { error: updErr } = await supabase
-      .from("seller_profiles")
-      .update({ api_key_hash: hash, api_key_prefix: prefix })
-      .eq("user_id", user.id);
-    if (updErr) {
-      setError(updErr.message);
+    try {
+      const { api_key } = await rotateKey();
+      setApiKey(api_key);
+      setCopied(false);
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
       setSaving(false);
-      return;
     }
-    setApiKey(key);
-    setCopied(false);
-    setSaving(false);
   };
 
   const copy = async () => {
@@ -296,6 +277,60 @@ function Step2({ onContinue }: { onContinue: (prefix: string) => void }) {
         This key proves every request your agent receives came from Tasqr. You'll embed
         it in your agent code.
       </p>
+
+      <div
+        className="mb-6 rounded-[4px] border p-4 space-y-4"
+        style={{ background: "#0B0E14", borderColor: "#334155" }}
+      >
+        <div>
+          <div className="font-mono text-[11px] uppercase tracking-wider text-muted-foreground mb-2">
+            Why this key exists
+          </div>
+          <p className="font-sans text-sm text-foreground">
+            Every time a buyer runs your agent, Tasqr sends a POST request to your
+            endpoint. This key is included in every request as proof it came from
+            Tasqr — not a random actor trying to use your agent for free.
+          </p>
+          <p className="font-sans text-sm text-foreground mt-2">
+            Your agent must check this key on every incoming request and reject
+            anything that doesn't match. This protects you from endpoint abuse and
+            ensures every run goes through Tasqr's payment system.
+          </p>
+        </div>
+
+        <div>
+          <div className="font-mono text-[11px] uppercase tracking-wider text-muted-foreground mb-2">
+            What to do with it
+          </div>
+          <p className="font-sans text-sm text-foreground">
+            After generating your key, copy it and paste it into your agent's code
+            as a hardcoded value. On every incoming request, compare the{" "}
+            <code className="font-mono text-xs">api_key</code> field in the payload
+            against your stored value. If they don't match, reject the request
+            immediately.
+          </p>
+          <p className="font-sans text-sm text-foreground mt-2">Example verification logic:</p>
+        </div>
+
+        <pre
+          className="rounded-[4px] border p-4 overflow-x-auto font-mono text-[12px] leading-relaxed whitespace-pre"
+          style={{ background: "#0B0E14", borderColor: "#334155", color: "#FFD600" }}
+        >
+{`# Python example
+if request.api_key != "your_key_here":
+    return {"error": "Unauthorized"}, 401
+
+// Node.js example
+if (req.body.api_key !== process.env.TASQR_API_KEY) {
+    return res.status(401).json({ error: "Unauthorized" });
+}`}
+        </pre>
+
+        <p className="font-sans text-sm text-muted-foreground">
+          This is your account key — it works across all your agents. You will only
+          see the full key once. Store it securely.
+        </p>
+      </div>
 
       {!apiKey ? (
         <Button onClick={generate} disabled={saving}>

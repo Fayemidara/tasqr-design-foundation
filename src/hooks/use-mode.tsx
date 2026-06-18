@@ -25,7 +25,7 @@ export function ModeProvider({ children }: { children: ReactNode }) {
   const { user } = useAuth();
   const [role, setRole] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
-  const [mode, setModeState] = useState<Mode>(() => readStored() ?? "buyer");
+  const [mode, setModeState] = useState<Mode>("buyer");
 
   useEffect(() => {
     if (!user) {
@@ -34,6 +34,12 @@ export function ModeProvider({ children }: { children: ReactNode }) {
       return;
     }
     setLoading(true);
+    // On every fresh session load, default to buyer mode regardless
+    // of what was previously stored in localStorage.
+    setModeState("buyer");
+    if (typeof window !== "undefined") {
+      window.localStorage.setItem(STORAGE_KEY, "buyer");
+    }
     supabase
       .from("profiles")
       .select("role")
@@ -42,22 +48,6 @@ export function ModeProvider({ children }: { children: ReactNode }) {
       .then(({ data }) => {
         const r = data?.role ?? null;
         setRole(r);
-        const stored = readStored();
-        if (r === "both") {
-          // If no explicit choice yet, infer from current path
-          if (!stored && typeof window !== "undefined") {
-            const inferred: Mode = window.location.pathname.startsWith("/seller")
-              ? "seller"
-              : "buyer";
-            setModeState(inferred);
-            window.localStorage.setItem(STORAGE_KEY, inferred);
-          }
-        } else if (r === "seller") {
-          setModeState("seller");
-        } else {
-          // pure buyer or null
-          if (mode === "seller") setModeState("buyer");
-        }
         setLoading(false);
       });
   }, [user]);

@@ -15,12 +15,12 @@ export function OnboardingLayout({
 }) {
   return (
     <div className="min-h-screen flex flex-col bg-background">
-      <header className="h-[60px] bg-sidebar flex items-center px-6 border-b border-border">
+      <header className="h-[60px] bg-sidebar flex items-center px-4 sm:px-6 border-b border-border">
         <span className="font-mono text-lg font-semibold tracking-tight text-sidebar-foreground">
           TASQR
         </span>
       </header>
-      <main className="flex-1 flex flex-col items-center px-4 py-10">
+      <main className="flex-1 flex flex-col items-center px-4 py-6 sm:py-10">
         <div className="w-full" style={{ maxWidth }}>
           <div className="mb-6 flex items-center gap-3">
             <div className="font-mono text-[11px] uppercase tracking-[0.05em] text-muted-foreground">
@@ -36,7 +36,7 @@ export function OnboardingLayout({
           {bare ? (
             children
           ) : (
-            <div className="bg-surface-raised border border-border rounded-[4px] p-6">
+            <div className="bg-surface-raised border border-border rounded-[4px] p-4 sm:p-6">
               {children}
             </div>
           )}

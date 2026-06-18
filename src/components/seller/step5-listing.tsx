@@ -208,7 +208,7 @@ export function Step5Listing({
         <div className="mb-2 font-mono text-[11px] uppercase tracking-[0.05em] text-muted-foreground">
           Pricing Model
         </div>
-        <div className="grid grid-cols-3 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
           {PRICING_MODELS.map((p) => (
             <SelectableCard
               key={p.id}

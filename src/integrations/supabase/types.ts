@@ -28,8 +28,11 @@ export type Database = {
           name: string
           one_time_price: number | null
           output_type: string | null
+          paused_reason: string | null
           pricing_model: string | null
           processing_time: string | null
+          reliability_score: number
+          restored_at: string | null
           review_count: number
           run_count: number
           seller_id: string
@@ -37,6 +40,7 @@ export type Database = {
           slug: string | null
           status: string
           subscription_price: number | null
+          updated_at: string
         }
         Insert: {
           average_rating?: number
@@ -51,8 +55,11 @@ export type Database = {
           name: string
           one_time_price?: number | null
           output_type?: string | null
+          paused_reason?: string | null
           pricing_model?: string | null
           processing_time?: string | null
+          reliability_score?: number
+          restored_at?: string | null
           review_count?: number
           run_count?: number
           seller_id: string
@@ -60,6 +67,7 @@ export type Database = {
           slug?: string | null
           status?: string
           subscription_price?: number | null
+          updated_at?: string
         }
         Update: {
           average_rating?: number
@@ -74,8 +82,11 @@ export type Database = {
           name?: string
           one_time_price?: number | null
           output_type?: string | null
+          paused_reason?: string | null
           pricing_model?: string | null
           processing_time?: string | null
+          reliability_score?: number
+          restored_at?: string | null
           review_count?: number
           run_count?: number
           seller_id?: string
@@ -83,6 +94,7 @@ export type Database = {
           slug?: string | null
           status?: string
           subscription_price?: number | null
+          updated_at?: string
         }
         Relationships: [
           {
@@ -294,6 +306,7 @@ export type Database = {
       seller_profiles: {
         Row: {
           airtm_email: string | null
+          api_key_encrypted: string | null
           api_key_hash: string | null
           api_key_last_used: string | null
           api_key_prefix: string | null
@@ -302,14 +315,17 @@ export type Database = {
           draft_input_schema: Json | null
           handle: string | null
           id: string
+          last_paid_out_at: string | null
           reliability_score: number
           total_earnings: number
+          total_paid_out: number
           user_id: string
           website: string | null
           withdrawable_balance: number
         }
         Insert: {
           airtm_email?: string | null
+          api_key_encrypted?: string | null
           api_key_hash?: string | null
           api_key_last_used?: string | null
           api_key_prefix?: string | null
@@ -318,14 +334,17 @@ export type Database = {
           draft_input_schema?: Json | null
           handle?: string | null
           id?: string
+          last_paid_out_at?: string | null
           reliability_score?: number
           total_earnings?: number
+          total_paid_out?: number
           user_id: string
           website?: string | null
           withdrawable_balance?: number
         }
         Update: {
           airtm_email?: string | null
+          api_key_encrypted?: string | null
           api_key_hash?: string | null
           api_key_last_used?: string | null
           api_key_prefix?: string | null
@@ -334,8 +353,10 @@ export type Database = {
           draft_input_schema?: Json | null
           handle?: string | null
           id?: string
+          last_paid_out_at?: string | null
           reliability_score?: number
           total_earnings?: number
+          total_paid_out?: number
           user_id?: string
           website?: string | null
           withdrawable_balance?: number
@@ -354,6 +375,7 @@ export type Database = {
         Row: {
           agent_id: string
           buyer_id: string
+          consecutive_failures: number
           created_at: string
           current_period_end: string
           current_period_start: string
@@ -366,6 +388,7 @@ export type Database = {
         Insert: {
           agent_id: string
           buyer_id: string
+          consecutive_failures?: number
           created_at?: string
           current_period_end?: string
           current_period_start?: string
@@ -378,6 +401,7 @@ export type Database = {
         Update: {
           agent_id?: string
           buyer_id?: string
+          consecutive_failures?: number
           created_at?: string
           current_period_end?: string
           current_period_start?: string
@@ -428,6 +452,7 @@ export type Database = {
           dispute_window_ends: string | null
           hold_until: string | null
           id: string
+          paid_out_at: string | null
           paystack_reference: string | null
           platform_fee: number | null
           refunded_at: string | null
@@ -445,6 +470,7 @@ export type Database = {
           dispute_window_ends?: string | null
           hold_until?: string | null
           id?: string
+          paid_out_at?: string | null
           paystack_reference?: string | null
           platform_fee?: number | null
           refunded_at?: string | null
@@ -462,6 +488,7 @@ export type Database = {
           dispute_window_ends?: string | null
           hold_until?: string | null
           id?: string
+          paid_out_at?: string | null
           paystack_reference?: string | null
           platform_fee?: number | null
           refunded_at?: string | null
@@ -536,10 +563,24 @@ export type Database = {
         Args: never
         Returns: {
           amount: number
+          buyer_email: string
           buyer_id: string
           created_at: string
           id: string
           paystack_reference: string
+        }[]
+      }
+      admin_list_system_paused_agents: {
+        Args: never
+        Returns: {
+          agent_id: string
+          agent_name: string
+          dispute_rate: number
+          failure_rate: number
+          paused_at: string
+          reliability_score: number
+          seller_email: string
+          seller_handle: string
         }[]
       }
       admin_mark_payout_paid: { Args: { _tx_id: string }; Returns: undefined }
@@ -555,12 +596,13 @@ export type Database = {
         Args: { _action: string; _dispute_id: string }
         Returns: undefined
       }
+      admin_restore_agent: { Args: { _agent_id: string }; Returns: undefined }
       admin_restore_seller_agents: {
         Args: { _seller_id: string }
         Returns: undefined
       }
       calculate_reliability_score: {
-        Args: { _seller_id: string }
+        Args: { _agent_id: string }
         Returns: number
       }
       cancel_subscription: { Args: { _sub_id: string }; Returns: undefined }
@@ -584,10 +626,26 @@ export type Database = {
         Returns: undefined
       }
       get_agent_api_key_prefix: { Args: { _agent_id: string }; Returns: string }
+      get_agent_health: {
+        Args: { _seller_id: string }
+        Returns: {
+          agent_id: string
+          agent_name: string
+          dispute_rate: number
+          error_rate: number
+          malformed_count: number
+          reliability_score: number
+          status: string
+          timeout_rate: number
+          total_runs: number
+        }[]
+      }
+      get_my_agent_endpoint: { Args: { _agent_id: string }; Returns: string }
       get_my_seller_profile: {
         Args: never
         Returns: {
           airtm_email: string | null
+          api_key_encrypted: string | null
           api_key_hash: string | null
           api_key_last_used: string | null
           api_key_prefix: string | null
@@ -596,8 +654,10 @@ export type Database = {
           draft_input_schema: Json | null
           handle: string | null
           id: string
+          last_paid_out_at: string | null
           reliability_score: number
           total_earnings: number
+          total_paid_out: number
           user_id: string
           website: string | null
           withdrawable_balance: number
@@ -628,12 +688,42 @@ export type Database = {
           total_runs: number
         }[]
       }
+      get_withdrawable_balance: {
+        Args: { _seller_profile_id: string }
+        Returns: number
+      }
+      increment_subscription_failures: {
+        Args: { _sub_id: string }
+        Returns: number
+      }
       is_admin: { Args: never; Returns: boolean }
       is_seller_dispute: { Args: { _run_id: string }; Returns: boolean }
       is_seller_owner: { Args: { seller_profile_id: string }; Returns: boolean }
+      list_reactivated_subscribers: {
+        Args: { _agent_id: string }
+        Returns: {
+          agent_name: string
+          buyer_email: string
+          seller_handle: string
+        }[]
+      }
+      pause_subscriptions_for_agent: {
+        Args: { _agent_id: string }
+        Returns: {
+          agent_name: string
+          buyer_email: string
+          buyer_id: string
+          seller_handle: string
+          subscription_id: string
+        }[]
+      }
       raise_dispute: {
         Args: { _reason: string; _run_id: string }
         Returns: string
+      }
+      reset_subscription_failures: {
+        Args: { _sub_id: string }
+        Returns: undefined
       }
       trigger_refund: { Args: { _transaction_id: string }; Returns: undefined }
     }

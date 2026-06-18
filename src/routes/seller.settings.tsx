@@ -7,6 +7,8 @@ import { Button } from "@/components/ui/tasqr-button";
 import { Input, Label } from "@/components/ui/tasqr-form";
 import { useAuth } from "@/hooks/use-auth";
 import { supabase } from "@/integrations/supabase/client";
+import { useServerFn } from "@tanstack/react-start";
+import { rotateSellerApiKey } from "@/lib/api-key.functions";
 
 export const Route = createFileRoute("/seller/settings")({
   head: () => ({ meta: [{ title: "Seller Settings — Tasqr" }] }),
@@ -22,22 +24,6 @@ export const Route = createFileRoute("/seller/settings")({
 });
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-const KEY_CHARS = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
-
-function generateApiKey() {
-  const arr = new Uint32Array(24);
-  crypto.getRandomValues(arr);
-  let s = "";
-  for (let i = 0; i < 24; i++) s += KEY_CHARS[arr[i] % KEY_CHARS.length];
-  return `tsk_live_${s}`;
-}
-
-async function sha256Hex(input: string) {
-  const buf = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(input));
-  return Array.from(new Uint8Array(buf))
-    .map((b) => b.toString(16).padStart(2, "0"))
-    .join("");
-}
 
 function formatLastUsed(iso: string | null) {
   if (!iso) return "Never used";
@@ -47,6 +33,7 @@ function formatLastUsed(iso: string | null) {
 
 function SettingsPage() {
   const { user } = useAuth();
+  const rotateKeyFn = useServerFn(rotateSellerApiKey);
   const [loading, setLoading] = useState(true);
 
   // payout
@@ -114,15 +101,18 @@ function SettingsPage() {
     if (!user) return;
     setRotating(true);
     setRotateErr(null);
-    const key = generateApiKey();
-    const hash = await sha256Hex(key);
-    const prefix = key.slice(0, 12);
-    const { error } = await supabase
-      .from("seller_profiles")
-      .update({ api_key_hash: hash, api_key_prefix: prefix })
-      .eq("user_id", user.id);
+    let key: string;
+    let prefix: string;
+    try {
+      const r = await rotateKeyFn();
+      key = r.api_key;
+      prefix = r.api_key_prefix;
+    } catch (e) {
+      setRotateErr((e as Error).message);
+      setRotating(false);
+      return;
+    }
     setRotating(false);
-    if (error) { setRotateErr(error.message); return; }
     const now = Date.now();
     setNewKey(key);
     setKeyPrefix(prefix);
@@ -147,7 +137,7 @@ function SettingsPage() {
   const maskedKey = keyPrefix ? `${keyPrefix}••••••••••••` : null;
 
   return (
-    <div className="max-w-3xl mx-auto px-8 py-10">
+    <div className="w-full max-w-3xl mx-auto p-4 sm:p-6 lg:px-8 lg:py-10">
       <h1 className="font-mono text-[32px] mb-10">Settings</h1>
 
       {/* Section 1 — Payout */}
@@ -257,6 +247,29 @@ function SettingsPage() {
               <Button type="button" variant="secondary" onClick={rotate} disabled={rotating}>
                 {rotating ? "Rotating..." : "Rotate Key"}
               </Button>
+            </div>
+
+            <div
+              className="w-full rounded-[4px] border p-4 mt-2"
+              style={{ background: "#0B0E14", borderColor: "#334155" }}
+            >
+              <div className="font-mono text-[11px] uppercase tracking-wider text-muted-foreground mb-2">
+                Implementation reminder
+              </div>
+              <p className="font-sans text-sm text-muted-foreground">
+                This key is sent by Tasqr in every POST request to your agent
+                endpoints. Your agent must verify it on every incoming request —
+                reject anything that doesn't match.
+              </p>
+              <p className="font-sans text-sm text-muted-foreground mt-2">
+                This is your account key. Use the same key across all your listed
+                agents. If you rotate your key, update it in all your agents
+                immediately — the old key expires after 24 hours.
+              </p>
+              <p className="font-mono text-xs mt-3" style={{ color: "#FFD600" }}>
+                ⚠ An unverified endpoint accepts requests from anyone, bypassing
+                Tasqr's payment system entirely.
+              </p>
             </div>
           </div>
         )}

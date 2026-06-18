@@ -2,7 +2,6 @@ import { useEffect, useState } from "react";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { Star, Clock, ExternalLink } from "lucide-react";
 import { AppShell } from "@/components/layout/app-shell";
-import { RequireAuth } from "@/components/auth/require-auth";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
 import { cn } from "@/lib/utils";
@@ -168,7 +167,7 @@ function AgentDetailInner({ slug }: { slug: string }) {
 
   if (loading) {
     return (
-      <div className="max-w-7xl mx-auto px-8 py-10">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-10">
         <div className="grid grid-cols-1 lg:grid-cols-[65%_35%] gap-8">
           <div className="space-y-6">
             <Skel className="h-10 w-2/3" />
@@ -184,7 +183,7 @@ function AgentDetailInner({ slug }: { slug: string }) {
 
   if (!agent || agent.status !== "live") {
     return (
-      <div className="max-w-7xl mx-auto px-8 py-24 text-center">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-24 text-center">
         <p className="font-sans text-sm text-muted-foreground">This agent is not available.</p>
       </div>
     );
@@ -485,14 +484,12 @@ function AgentDetailInner({ slug }: { slug: string }) {
   };
 
   return (
-    <div className="max-w-7xl mx-auto px-8 py-10">
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-10">
 
-      <div className="grid grid-cols-1 lg:grid-cols-[65%_35%] gap-8">
-        {/* Left column */}
-        <div className="space-y-10 min-w-0">
+      <div className="max-w-3xl mx-auto space-y-10 min-w-0">
           {/* Header */}
           <section className="space-y-3">
-            <h1 className="font-mono text-[32px] leading-tight text-foreground">{agent.name}</h1>
+            <h1 className="font-mono text-2xl lg:text-4xl leading-tight text-foreground">{agent.name}</h1>
             {agent.category && (
               <div>
                 <span className="font-mono text-[10px] uppercase tracking-[0.05em] px-2 py-0.5 rounded-[4px] bg-accent text-accent-foreground">
@@ -501,13 +498,15 @@ function AgentDetailInner({ slug }: { slug: string }) {
               </div>
             )}
             <p className="font-sans text-base text-muted-foreground">{agent.short_description}</p>
-            <div className="flex items-center gap-1 font-mono text-xs text-muted-foreground">
-              <Star className="h-3.5 w-3.5 fill-warning text-warning" />
-              <span className="text-foreground">{Number(agent.average_rating ?? 0).toFixed(1)}</span>
-              <span>({agent.review_count} reviews)</span>
-              <span className="mx-1">·</span>
-              <span>{agent.run_count} runs</span>
-            </div>
+            {agent.review_count > 0 && (
+              <div className="flex items-center gap-1 font-mono text-xs text-muted-foreground">
+                <Star className="h-3.5 w-3.5 fill-warning text-warning" />
+                <span className="text-foreground">{Number(agent.average_rating ?? 0).toFixed(1)}</span>
+                <span>({agent.review_count} reviews)</span>
+                <span className="mx-1">·</span>
+                <span>{agent.run_count} runs</span>
+              </div>
+            )}
           </section>
 
           {/* Seller */}
@@ -588,52 +587,8 @@ function AgentDetailInner({ slug }: { slug: string }) {
             )}
           </section>
 
-          {/* Reviews */}
+          {/* Purchase panel — full width inline block */}
           <section className="space-y-3">
-            <div className={LABEL}>Reviews</div>
-            {reviews.length === 0 ? (
-              <p className="font-sans text-sm text-muted-foreground">
-                No reviews yet. Be the first to run this agent.
-              </p>
-            ) : (
-              <div className="space-y-3">
-                {reviews.map((r) => (
-                  <div
-                    key={r.id}
-                    className="bg-surface-raised border border-border rounded-[4px] p-4 space-y-2"
-                  >
-                    <div className="flex items-center gap-1 font-mono text-xs text-foreground">
-                      {Array.from({ length: 5 }).map((_, i) => (
-                        <Star
-                          key={i}
-                          className={cn(
-                            "h-3.5 w-3.5",
-                            i < r.rating ? "fill-warning text-warning" : "text-muted-foreground",
-                          )}
-                        />
-                      ))}
-                    </div>
-                    {r.review_text && (
-                      <p className="font-sans text-sm text-foreground">{r.review_text}</p>
-                    )}
-                    <div className="font-mono text-[11px] uppercase tracking-[0.05em] text-muted-foreground">
-                      Buyer ••• · {new Date(r.created_at).toLocaleDateString()}
-                    </div>
-                  </div>
-                ))}
-                {agent.review_count > reviews.length && (
-                  <button className="font-mono text-xs text-muted-foreground hover:text-foreground">
-                    Show all reviews
-                  </button>
-                )}
-              </div>
-            )}
-          </section>
-        </div>
-
-        {/* Right column — sticky purchase panel */}
-        <aside className="min-w-0">
-          <div className="lg:sticky lg:top-8 space-y-3">
             <div className="bg-surface-raised border border-border rounded-[4px] p-6 space-y-5">
               {showBoth ? (
                 <div className="space-y-2">
@@ -705,6 +660,15 @@ function AgentDetailInner({ slug }: { slug: string }) {
                     </p>
                   )}
                 </>
+              ) : !user ? (
+                <a
+                  href={`/signin?redirect=/agents/${agent.slug ?? agent.id}`}
+                  className="block w-full text-center bg-primary text-primary-foreground font-mono text-sm py-3 rounded-[4px] hover:bg-primary/90 transition-colors"
+                >
+                  {selectedPricing === "subscription" && hasSub
+                    ? "Sign in to Subscribe"
+                    : "Sign in to Run This Agent"}
+                </a>
               ) : selectedPricing === "one_time" && hasOne ? (
                 <>
                   <button
@@ -760,8 +724,49 @@ function AgentDetailInner({ slug }: { slug: string }) {
                 ⚠ This seller has a low reliability score
               </p>
             )}
-          </div>
-        </aside>
+          </section>
+
+          {/* Reviews */}
+          <section className="space-y-3">
+            <div className={LABEL}>Reviews</div>
+            {reviews.length === 0 ? (
+              <p className="font-sans text-sm text-muted-foreground">
+                No reviews yet. Be the first to run this agent.
+              </p>
+            ) : (
+              <div className="space-y-3">
+                {reviews.map((r) => (
+                  <div
+                    key={r.id}
+                    className="bg-surface-raised border border-border rounded-[4px] p-4 space-y-2"
+                  >
+                    <div className="flex items-center gap-1 font-mono text-xs text-foreground">
+                      {Array.from({ length: 5 }).map((_, i) => (
+                        <Star
+                          key={i}
+                          className={cn(
+                            "h-3.5 w-3.5",
+                            i < r.rating ? "fill-warning text-warning" : "text-muted-foreground",
+                          )}
+                        />
+                      ))}
+                    </div>
+                    {r.review_text && (
+                      <p className="font-sans text-sm text-foreground">{r.review_text}</p>
+                    )}
+                    <div className="font-mono text-[11px] uppercase tracking-[0.05em] text-muted-foreground">
+                      Buyer ••• · {new Date(r.created_at).toLocaleDateString()}
+                    </div>
+                  </div>
+                ))}
+                {agent.review_count > reviews.length && (
+                  <button className="font-mono text-xs text-muted-foreground hover:text-foreground">
+                    Show all reviews
+                  </button>
+                )}
+              </div>
+            )}
+          </section>
       </div>
     </div>
   );
@@ -775,10 +780,8 @@ export const Route = createFileRoute("/agents/$slug")({
 function RouteComponent() {
   const { slug } = Route.useParams();
   return (
-    <RequireAuth>
-      <AppShell>
-        <AgentDetailInner slug={slug} />
-      </AppShell>
-    </RequireAuth>
+    <AppShell>
+      <AgentDetailInner slug={slug} />
+    </AppShell>
   );
 }
