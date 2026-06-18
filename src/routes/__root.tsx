@@ -9,6 +9,7 @@ import {
 } from "@tanstack/react-router";
 
 import appCss from "../styles.css?url";
+import favicon from "@/assets/favicon.png.asset.json";
 import { AuthProvider } from "@/hooks/use-auth";
 import { ModeProvider } from "@/hooks/use-mode";
 
@@ -88,7 +89,8 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { name: "twitter:image", content: "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/598f2e04-e4f9-45cd-99d7-24d27f929dc4/id-preview-35bcfc6b--5b5f76b8-cd8d-445b-850d-c9e0950cfcc5.lovable.app-1780647623704.png" },
     ],
     links: [
-      { rel: "icon", type: "image/png", href: "/__l5e/assets-v1/2ff1afcc-513c-42ab-be39-30eeb4e7abe2/favicon.png" },
+      { rel: "shortcut icon", type: "image/png", href: favicon.url },
+      { rel: "icon", type: "image/png", href: favicon.url },
       { rel: "preconnect", href: "https://fonts.googleapis.com" },
       { rel: "preconnect", href: "https://fonts.gstatic.com", crossOrigin: "anonymous" },
       {
